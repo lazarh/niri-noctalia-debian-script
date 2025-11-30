@@ -55,7 +55,7 @@ sudo apt install -y \
     libcli11-dev libdrm-dev libpolkit-qt6-1-dev libpolkit-agent-1-dev \
     libjemalloc-dev libpam-dev wayland-protocols librust-wayland-scanner-dev \
     librust-wayland-protocols-dev librust-wayland-commons-dev spirv-tools pkg-config \
-    gpu-screen-recorder brightnessctl ddcutil cliphist cava wlsunset xdg-desktop-portal python3 evolution-data-server polkit-kde-agent-1 || true
+    brightnessctl ddcutil cliphist cava wlsunset xdg-desktop-portal python3 evolution-data-server polkit-kde-agent-1 || true
 
 echo -e "${GREEN}[2/6] Ensuring Rust (cargo) is installed for invoking user...${RESET}"
 if ! run_user 'command -v cargo >/dev/null 2>&1'; then

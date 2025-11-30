@@ -83,3 +83,41 @@ The scripts will call `sudo` internally for package installation when necessary.
 
 If you want me to wire specific repository URLs into `build-quickshell.sh` or make it install Noctalia to a particular path, tell me the exact repo URLs and target path and I'll update the script accordingly.
 
+**Combined Installer**
+
+This repository also includes `install-all.sh` — a single, opinionated installer that merges the steps from `build.sh` and `build-quickshell.sh` so you can install Niri, xwayland-satellite, Quickshell, and Noctalia in one run.
+
+- **Purpose:** automate installing system packages, Rust, building Niri and xwayland-satellite, building Quickshell (CMake/Ninja), installing optional helper tools, and extracting the Noctalia release into the Quickshell config directory.
+- **Path:** `install-all.sh` (at repository root).
+
+Usage (recommended):
+
+```
+chmod +x install-all.sh
+sudo ./install-all.sh
+```
+
+Environment options:
+- `NO_PACSTALL=1` — skip the optional `pacstall` installer step.
+- `NOCTALIA_TARBALL_URL="<url>"` — override the default Noctalia release tarball URL used when extracting into `~/.config/quickshell/noctalia-shell`.
+
+What it installs/does:
+- Installs system packages (build tools, Qt6 dev packages for Quickshell, XCB dev libs, and other utilities).
+- Installs Rust (`rustup`) for the invoking user if missing.
+- Clones and builds `niri` via `cargo` and runs `cargo install` for the invoking user.
+- Copies the built `niri` binary to `/usr/local/bin/niri` so display managers (GDM) can launch it.
+- Builds `xwayland-satellite` from source and installs it to `/usr/local/bin`.
+- Builds Quickshell using CMake/Ninja and installs it system-wide via `cmake --install`.
+- Installs `matugen` via `cargo` for the invoking user.
+- Optionally runs the `pacstall` installer (can be skipped with `NO_PACSTALL=1`).
+- Downloads the Noctalia release tarball and extracts it to `~/.config/quickshell/noctalia-shell` for the invoking user.
+- Writes a Wayland session `.desktop` file at `/usr/share/wayland-sessions/niri.desktop` that points to `/usr/local/bin/niri`.
+
+Notes & warnings:
+- The script is large and will pull many development packages (Qt6, etc.) — allow time and disk space for these downloads.
+- Run it as `sudo ./install-all.sh` or as your normal user — when run with `sudo`, the installer detects `SUDO_USER` and performs user-local installs as that user so paths/ownership are correct.
+- The `pacstall` invocation runs a third-party installer script; skip it unless you trust that source.
+- If a step fails (missing apt packages or build errors), the script prints warnings; inspect the output and rerun the failing command manually if needed.
+
+If you want the installer adjusted (for example, to avoid copying the `niri` binary and use a wrapper instead, or to make Quickshell optional), tell me which behavior you prefer and I will update `install-all.sh` accordingly.
+
