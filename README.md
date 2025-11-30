@@ -32,36 +32,7 @@ Note: `build.sh` will call `sudo` for package installation. It will also attempt
 - The installed binary is placed under `$HOME/.cargo/bin/niri` when `cargo install` is run.
 - Configuration (if copied) ends up in `~/.config/niri/config.kdl`.
 
-**Removing the git repository association (safe options):**
-
-If this local repository is currently linked to the remote `lazarh/niri-noctalia-debian-script` and you want to remove or change that association, choose one of the safe approaches below.
-
-- Inspect current remotes:
-
-```
-git remote -v
-```
-
-- Remove the remote named `origin` (or whichever name points to the `lazarh/...` repository):
-
-```
-git remote remove origin
-```
-
-- Change the remote to a different repository URL instead of removing it:
-
-```
-git remote set-url origin git@github.com:youruser/yourrepo.git
-```
-
-- If you want to completely unlink the repository and remove Git history locally (destructive — irreversible for local history):
-
-```
-# WARNING: this deletes all local git history in this folder
-rm -rf .git
-```
-
-If your goal is to delete the remote repository on GitHub (the `lazarh/niri-noctalia-debian-script` repo itself), that must be done via GitHub's web UI or API by the repository owner.
+If you no longer need guidance for removing or changing a git remote, it has been removed from this README. Manage remotes locally with `git remote` commands as needed.
 
 **Troubleshooting:**
 - If `cargo` is not found and `rustup` install failed, ensure `curl` is installed and your shell allows sourcing `$HOME/.cargo/env` (or restart the shell after install).
@@ -72,7 +43,43 @@ If your goal is to delete the remote repository on GitHub (the `lazarh/niri-noct
 
 ---
 
-If you'd like, I can also:
-- Modify `build.sh` to set a `START_DIR` variable so the config copying step works reliably.
-- Add a small `uninstall.sh` helper that undoes the local install steps.
+**Quickshell & Noctalia installer (second phase)**
+
+This repository may include `build-quickshell.sh` which is intended to run after `build.sh` completes successfully. Its purpose is to build and install Quickshell on Debian 13 and then set up Noctalia on top of it.
+
+- Usage (example):
+
+```
+chmod +x build-quickshell.sh
+./build-quickshell.sh
+```
+
+`build-quickshell.sh` uses the following default repository URLs (edit the script to change them):
+
+- Quickshell: `https://git.outfoxxed.me/quickshell/quickshell.git`
+- Noctalia: `https://github.com/noctalia-dev/noctalia-shell.git`
+
+The script will:
+- Install system dependencies (apt packages)
+- Ensure Rust (`cargo`) is installed
+- Clone, build and `cargo install` Quickshell
+- Clone Noctalia (if `NOCTALIA_REPO` is provided) and copy its configuration/assets into the appropriate Quickshell config directory (or another location you configure in the script)
+
+Note: `build.sh` now attempts to build and install `xwayland-satellite` as part of the Niri install, and will copy the `xwayland-satellite` binary to `/usr/local/bin` so that `niri` can find it at runtime. If building `xwayland-satellite` fails due to missing native dependencies or an older Xwayland on Debian 13, see the Troubleshooting section below.
+
+Important: do NOT run these scripts with `sudo sh scriptname` or run them as root. Running with `sh` or as root can cause environment sourcing to fail and may install tools into the wrong user's home.
+
+Correct invocation examples:
+
+```
+chmod +x build.sh
+./build.sh
+
+chmod +x build-quickshell.sh
+./build-quickshell.sh
+```
+
+The scripts will call `sudo` internally for package installation when necessary.
+
+If you want me to wire specific repository URLs into `build-quickshell.sh` or make it install Noctalia to a particular path, tell me the exact repo URLs and target path and I'll update the script accordingly.
 

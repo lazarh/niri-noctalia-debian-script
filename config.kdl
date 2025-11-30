@@ -1,6 +1,8 @@
 prefer-no-csd
 
 input {
+    mod-key "Super"
+	
     keyboard {
         xkb {
           layout "us,bg"
@@ -73,7 +75,7 @@ layout {
     }
 }
 
-spawn-at-startup "noctalia-shell"
+spawn-sh-at-startup "qs -c ~/.config/quickshell/noctalia-shell/"
 
 hotkey-overlay {
 }
