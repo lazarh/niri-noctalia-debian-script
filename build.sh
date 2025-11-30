@@ -8,6 +8,9 @@ BOLD="\e[1m"
 GREEN="\e[32m"
 RESET="\e[0m"
 
+# Record the directory where the script was invoked so config copying works
+START_DIR="$(pwd)"
+
 echo -e "${BOLD}Starting Niri Installation for Debian 13...${RESET}"
 
 # 1. Update Repositories
