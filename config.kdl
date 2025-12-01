@@ -76,6 +76,8 @@ layout {
 }
 
 spawn-sh-at-startup "qs -c ~/.config/quickshell/noctalia-shell/"
+spawn-sh-at-startup "wlsunset -l 42.71 -L 23.38"
+
 
 hotkey-overlay {
 }
@@ -91,7 +93,7 @@ window-rule {
 }
 
 window-rule {
-    match app-id=r#"firefox$"# title="^Picture-in-Picture$"
+    match app-id="firefox-esr" title="^Picture-in-Picture$"
     open-floating true
 }
 
@@ -261,5 +263,7 @@ binds {
     Ctrl+Alt+Delete { quit; }
 
     Mod+Shift+P { power-off-monitors; }
+
+    Mod+N { spawn-sh "wlsunset -l 42.71 -L 23.38"; } 
 }
 
