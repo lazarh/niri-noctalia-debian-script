@@ -76,8 +76,6 @@ layout {
 }
 
 spawn-sh-at-startup "qs -c ~/.config/quickshell/noctalia-shell/"
-spawn-sh-at-startup "wlsunset -l 42.71 -L 23.38"
-
 
 hotkey-overlay {
 }
@@ -264,6 +262,5 @@ binds {
 
     Mod+Shift+P { power-off-monitors; }
 
-    Mod+N { spawn-sh "wlsunset -l 42.71 -L 23.38"; } 
 }
 
