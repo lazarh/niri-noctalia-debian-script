@@ -7,8 +7,6 @@ This repository provides a single, opinionated installer script `install-all.sh`
 - Quickshell (Qt-based shell)
 - Noctalia shell assets (extracted into Quickshell config)
 
-The original two scripts (`build.sh` and `build-quickshell.sh`) have been consolidated into this one script to simplify setup on Debian 13.
-
 **Important:** this installer performs system package installs and builds large projects (Qt6, Rust builds). Run it only on a machine where you are comfortable installing development packages and building from source.
 
 **Quick start**
