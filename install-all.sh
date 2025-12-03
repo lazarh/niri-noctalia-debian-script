@@ -48,6 +48,7 @@ sudo apt install -y \
     libudev-dev libgbm-dev libxkbcommon-dev libegl1-mesa-dev libwayland-dev \
     libinput-dev libdbus-1-dev libsystemd-dev libseat-dev libpipewire-0.3-dev \
     libpango1.0-dev libdisplay-info-dev fuzzel alacritty \
+    swayidle \
     qt6-base-dev qt6-base-private-dev qt6-tools-dev qt6-svg-dev \
     qt6-declarative-dev qt6-declarative-private-dev libqt6qmlcompiler6 \
     qt6-shadertools-dev qt6-quick3d-dev qt6-quick3d-private-dev \
@@ -55,7 +56,7 @@ sudo apt install -y \
     libcli11-dev libdrm-dev libpolkit-qt6-1-dev libpolkit-agent-1-dev \
     libjemalloc-dev libpam-dev wayland-protocols librust-wayland-scanner-dev \
     librust-wayland-protocols-dev librust-wayland-commons-dev spirv-tools pkg-config \
-    brightnessctl ddcutil cliphist cava wlsunset xdg-desktop-portal python3 \ 
+    brightnessctl ddcutil cliphist cava wlsunset xdg-desktop-portal python3 \
     evolution-data-server polkit-kde-agent-1 qt6-multimedia-dev || true
 
 echo -e "${GREEN}[2/6] Ensuring Rust (cargo) is installed for invoking user...${RESET}"
@@ -77,6 +78,8 @@ fi
 # convenience variables
 TARGET_DIR="$INVOKING_HOME/Documents/git"
 mkdir -p "$TARGET_DIR"
+# directory where this script lives (used to drop a local copy of idle.sh)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 
 ### Niri build (cargo)
 echo -e "${GREEN}[3/6] Building Niri (release) as $INVOKING_USER...${RESET}"
@@ -132,6 +135,34 @@ if [ -z "${NO_PACSTALL:-}" ]; then
     sudo bash -c "$(wget -q https://pacstall.dev/q/install -O -)" || true
 else
     echo "Skipping pacstall as NO_PACSTALL is set"
+fi
+
+echo -e "${GREEN}[Optional] Installing swayidle and configuring idle script...${RESET}"
+# Ensure swayidle is present (safe even if it was installed above)
+sudo apt install -y swayidle || true
+
+# Create user config script directory and write idle.sh for invoking user
+DEST_IDLE_DIR="$INVOKING_HOME/.config/niri/scripts"
+run_user "mkdir -p '$DEST_IDLE_DIR'"
+run_user "cat > '$DEST_IDLE_DIR/idle.sh' <<'EOF'
+#!/bin/sh
+swayidle \
+    timeout 300 'swaylock -f -c 000000' \
+    timeout 600 'systemctl suspend' \
+    before-sleep 'swaylock -f -c 000000'
+EOF"
+run_user "chmod +x '$DEST_IDLE_DIR/idle.sh'"
+
+# Also drop a copy next to this installer (`install-all.sh`) so it's easy to edit
+if [ -n "${SCRIPT_DIR:-}" ]; then
+    sudo bash -c "cat > '$SCRIPT_DIR/idle.sh' <<'EOF'
+#!/bin/sh
+swayidle \
+    timeout 300 'swaylock -f -c 000000' \
+    timeout 600 'systemctl suspend' \
+    before-sleep 'swaylock -f -c 000000'
+EOF"
+    sudo chmod +x "$SCRIPT_DIR/idle.sh" || true
 fi
 
 ### Noctalia installation (release tarball into quickshell config)

@@ -76,6 +76,7 @@ layout {
 }
 
 spawn-sh-at-startup "qs -c ~/.config/quickshell/noctalia-shell/"
+spawn-at-startup "~/.config/niri/scripts/idle.sh"
 
 hotkey-overlay {
 }
