@@ -1,5 +1,9 @@
 prefer-no-csd
 
+environment {
+  QT_QPA_PLATFORMTHEME "qt6ct"
+}
+
 input {
     mod-key "Super"
 	
@@ -15,6 +19,7 @@ input {
     touchpad {
         tap
         natural-scroll
+	accel-speed 0.5
     }
 
     mouse {
@@ -76,7 +81,7 @@ layout {
 }
 
 spawn-sh-at-startup "qs -c ~/.config/quickshell/noctalia-shell/"
-spawn-at-startup "~/.config/niri/scripts/idle.sh"
+spawn-sh-at-startup "wl-paste --watch cliphist store &"
 
 hotkey-overlay {
 }
@@ -119,7 +124,9 @@ binds {
 
     Mod+Return hotkey-overlay-title="Open a Terminal: alacritty" { spawn "alacritty"; }
     Mod+D hotkey-overlay-title="Run an Application: fuzzel" { spawn-sh "qs -c noctalia-shell ipc call launcher toggle"; }
-    Super+Alt+L hotkey-overlay-title="Lock the Screen: swaylock" { spawn "swaylock"; }
+    Super+Alt+K hotkey-overlay-title="Lock the Screen" { spawn-sh "qs -c noctalia-shell ipc call lockScreen lock"; }
+    Super+Alt+L hotkey-overlay-title="Lock the Screen" { spawn-sh "qs -c noctalia-shell ipc call sessionMenu lockAndSuspend"; }
+    Super+Alt+V hotkey-overlay-title="Show Clipboard" { spawn "qs" "-c" "noctalia-shell" "ipc" "call" "launcher" "clipboard";}
 
     Super+Alt+S allow-when-locked=true hotkey-overlay-title=null { spawn-sh "pkill orca || exec orca"; }
     XF86AudioRaiseVolume allow-when-locked=true { spawn-sh "wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.1+"; }
