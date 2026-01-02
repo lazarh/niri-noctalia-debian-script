@@ -39,6 +39,15 @@ run_user() {
 
 # 1) Update apt and install combined deps
 echo -e "${GREEN}[1/6] Updating package lists and installing dependencies...${RESET}"
+
+# First, ensure sudo is installed (needed for bare minimum Debian)
+if ! command -v sudo >/dev/null 2>&1; then
+    echo "sudo not found, installing it first..."
+    apt update
+    apt install -y sudo git curl
+    echo "sudo installed successfully"
+fi
+
 sudo apt update
 
 # Combined package list: build tools, xcb dev libs, Qt6 devs for Quickshell, and utilities
