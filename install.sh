@@ -2,10 +2,151 @@
 
 set -e  # Exit on error
 
-# Check for --ask-step parameter
+# Configuration flags
 ASK_STEP=false
-if [[ "$1" == "--ask-step" ]]; then
-    ASK_STEP=true
+SHOW_MENU=false
+INSTALL_VSCODE=false
+INSTALL_OMZ=false
+INSTALL_DOCS=false
+INSTALL_OFFICE=false
+APPLY_FIXES=false
+REMOVE_GNOME=false
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --ask-step)
+            ASK_STEP=true
+            shift
+            ;;
+        --menu)
+            SHOW_MENU=true
+            shift
+            ;;
+        --install-vscode)
+            INSTALL_VSCODE=true
+            shift
+            ;;
+        --install-omz)
+            INSTALL_OMZ=true
+            shift
+            ;;
+        --install-docs)
+            INSTALL_DOCS=true
+            shift
+            ;;
+        --install-office)
+            INSTALL_OFFICE=true
+            shift
+            ;;
+        --apply-fixes)
+            APPLY_FIXES=true
+            shift
+            ;;
+        --remove-gnome)
+            REMOVE_GNOME=true
+            shift
+            ;;
+        --help)
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --ask-step        Interactive mode - prompt before each core installation step"
+            echo "  --menu            Show interactive menu to select components"
+            echo "  --install-vscode  Install Visual Studio Code with Wayland support"
+            echo "  --install-omz     Install Oh My Zsh"
+            echo "  --install-docs    Install zathura and loupe (document viewers)"
+            echo "  --install-office  Install patat, gnumeric, and abiword"
+            echo "  --apply-fixes     Apply network & hardware fixes (NetworkManager, firmware, etc.)"
+            echo "  --remove-gnome    Remove GDM3 and GNOME packages (WARNING: removes desktop environment)"
+            echo "  --help            Show this help message"
+            echo ""
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
+# Interactive menu function
+show_interactive_menu() {
+    clear
+    echo "================================================"
+    echo "  Niri Installation - Component Selection Menu"
+    echo "================================================"
+    echo ""
+    echo "Core Components:"
+    echo "  [1] System dependencies (build tools, Qt6)"
+    echo "  [2] Pacstall package manager"
+    echo "  [3] Niri compositor"
+    echo "  [4] Quickshell"
+    echo "  [5] Noctalia-shell configuration"
+    echo ""
+    echo "Optional Components:"
+    echo "  [6] Visual Studio Code (with Wayland support)"
+    echo "  [7] Oh My Zsh"
+    echo "  [8] Document viewers (zathura, loupe)"
+    echo "  [9] Office tools (patat, gnumeric, abiword)"
+    echo "  [10] Network & hardware fixes"
+    echo "  [11] Remove GNOME/GDM3 (WARNING: removes desktop)"
+    echo ""
+    echo "  [A] Install all core components (1-5)"
+    echo "  [Q] Quit"
+    echo ""
+    read -p "Select components (space-separated numbers, e.g., '1 2 3 6'): " selections
+    
+    # Parse selections
+    for selection in $selections; do
+        case $selection in
+            1) INSTALL_DEPS=true ;;
+            2) INSTALL_PACSTALL=true ;;
+            3) INSTALL_NIRI=true ;;
+            4) INSTALL_QUICKSHELL=true ;;
+            5) INSTALL_NOCTALIA=true ;;
+            6) INSTALL_VSCODE=true ;;
+            7) INSTALL_OMZ=true ;;
+            8) INSTALL_DOCS=true ;;
+            9) INSTALL_OFFICE=true ;;
+            10) APPLY_FIXES=true ;;
+            11) REMOVE_GNOME=true ;;
+            [Aa]) 
+                INSTALL_DEPS=true
+                INSTALL_PACSTALL=true
+                INSTALL_NIRI=true
+                INSTALL_QUICKSHELL=true
+                INSTALL_NOCTALIA=true
+                ;;
+            [Qq]) 
+                echo "Installation cancelled."
+                exit 0
+                ;;
+            *)
+                echo "Invalid selection: $selection"
+                ;;
+        esac
+    done
+}
+
+# Initialize installation flags for core components
+INSTALL_DEPS=false
+INSTALL_PACSTALL=false
+INSTALL_NIRI=false
+INSTALL_QUICKSHELL=false
+INSTALL_NOCTALIA=false
+
+# Show menu if requested, otherwise enable all core components by default
+if [ "$SHOW_MENU" = true ]; then
+    show_interactive_menu
+else
+    # Default: install all core components unless using --ask-step
+    INSTALL_DEPS=true
+    INSTALL_PACSTALL=true
+    INSTALL_NIRI=true
+    INSTALL_QUICKSHELL=true
+    INSTALL_NOCTALIA=true
 fi
 
 # Function to ask user if they want to skip a step
@@ -31,9 +172,11 @@ if [ "$ASK_STEP" = true ]; then
 fi
 
 # Update package list and install dependencies
-echo ""
-echo "[1/5] System dependencies"
-if ask_skip "system dependencies (build tools, Qt6, and quickshell prerequisites)"; then
+if [ "$INSTALL_DEPS" = true ]; then
+    echo ""
+    echo "[1/5] System dependencies"
+fi
+if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6, and quickshell prerequisites)"; then
     sudo apt update
     sudo apt install -y sudo gpg curl git cmake ninja-build build-essential systemd-resolved \
         qt6-base-dev qt6-base-private-dev qt6-declarative-dev qt6-declarative-private-dev \
@@ -69,25 +212,31 @@ if ask_skip "system dependencies (build tools, Qt6, and quickshell prerequisites
 fi
 
 # Install Pacstall package manager
-echo ""
-echo "[2/5] Pacstall package manager"
-if ask_skip "Pacstall package manager"; then
+if [ "$INSTALL_PACSTALL" = true ]; then
+    echo ""
+    echo "[2/5] Pacstall package manager"
+fi
+if [ "$INSTALL_PACSTALL" = true ] && ask_skip "Pacstall package manager"; then
     bash -c "$(curl -fsSL https://pacstall.dev/q/ppr)"
     sudo apt update
     sudo apt install -y pacstall
 fi
 
 # Install niri using Pacstall
-echo ""
-echo "[3/5] Niri compositor"
-if ask_skip "niri compositor"; then
+if [ "$INSTALL_NIRI" = true ]; then
+    echo ""
+    echo "[3/5] Niri compositor"
+fi
+if [ "$INSTALL_NIRI" = true ] && ask_skip "niri compositor"; then
     pacstall -I niri
 fi
 
 # Build and install quickshell
-echo ""
-echo "[4/5] Quickshell"
-if ask_skip "quickshell (will be built from source)"; then
+if [ "$INSTALL_QUICKSHELL" = true ]; then
+    echo ""
+    echo "[4/5] Quickshell"
+fi
+if [ "$INSTALL_QUICKSHELL" = true ] && ask_skip "quickshell (will be built from source)"; then
     TEMP_DIR=$(mktemp -d)
     cd "$TEMP_DIR"
     git clone https://git.outfoxxed.me/quickshell/quickshell
@@ -100,9 +249,11 @@ if ask_skip "quickshell (will be built from source)"; then
 fi
 
 # Clone noctalia-shell configuration
-echo ""
-echo "[5/5] Noctalia-shell configuration"
-if ask_skip "noctalia-shell configuration"; then
+if [ "$INSTALL_NOCTALIA" = true ]; then
+    echo ""
+    echo "[5/5] Noctalia-shell configuration"
+fi
+if [ "$INSTALL_NOCTALIA" = true ] && ask_skip "noctalia-shell configuration"; then
     mkdir -p ~/.config/quickshell
     git clone https://github.com/noctalia-dev/noctalia-shell ~/.config/quickshell/noctalia-shell
 fi
@@ -112,23 +263,191 @@ if [ -n "$TEMP_DIR" ] && [ -d "$TEMP_DIR" ]; then
     rm -rf "$TEMP_DIR"
 fi
 
-# Apply niri configuration
-echo ""
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -f "$SCRIPT_DIR/config.kdl" ]; then
-    read -p "Do you want to apply the niri configuration (config.kdl)? (Y/n): " config_response
-    config_response=${config_response:-Y}
-    if [[ "$config_response" =~ ^[Yy]$ ]]; then
-        mkdir -p ~/.config/niri
-        cp "$SCRIPT_DIR/config.kdl" ~/.config/niri/config.kdl
-        echo "Niri configuration applied to ~/.config/niri/config.kdl"
-    else
-        echo "Skipping niri configuration..."
+# Apply niri configuration (only if niri was installed)
+if [ "$INSTALL_NIRI" = true ]; then
+    echo ""
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if [ -f "$SCRIPT_DIR/config.kdl" ]; then
+        read -p "Do you want to apply the niri configuration (config.kdl)? (Y/n): " config_response
+        config_response=${config_response:-Y}
+        if [[ "$config_response" =~ ^[Yy]$ ]]; then
+            mkdir -p ~/.config/niri
+            cp "$SCRIPT_DIR/config.kdl" ~/.config/niri/config.kdl
+            echo "Niri configuration applied to ~/.config/niri/config.kdl"
+        else
+            echo "Skipping niri configuration..."
+        fi
     fi
 fi
 
-echo ""
-echo "================================================"
-echo "Installation complete!"
-echo "================================================"
-echo "You can now start niri with: niri"
+# Optional: Remove GNOME/GDM3
+if [ "$REMOVE_GNOME" = true ]; then
+    echo ""
+    echo "================================================"
+    echo "WARNING: Remove GNOME and GDM3"
+    echo "================================================"
+    echo "This will remove GDM3 and GNOME packages, set"
+    echo "multi-user target, and reboot to console mode."
+    echo ""
+    read -p "Are you SURE you want to continue? (type 'yes' to confirm): " confirm
+    if [[ "$confirm" == "yes" ]]; then
+        sudo systemctl stop gdm3 || true
+        sudo apt purge -y gnome-core gnome-shell gdm3 gnome-session gnome-settings-daemon gnome-terminal
+        sudo apt autoremove --purge -y
+        sudo systemctl set-default multi-user.target
+        echo "GNOME and GDM3 removed. System will boot to console."
+    else
+        echo "Skipping GNOME removal."
+    fi
+fi
+
+# Optional: Install Visual Studio Code
+if [ "$INSTALL_VSCODE" = true ]; then
+    echo ""
+    echo "================================================"
+    echo "Installing Visual Studio Code"
+    echo "================================================"
+    sudo apt install -y wget gpg apt-transport-https
+    
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if [ ! -f "$SCRIPT_DIR/packages.microsoft.gpg" ]; then
+        wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > "$SCRIPT_DIR/packages.microsoft.gpg"
+    fi
+    
+    sudo install -D -o root -g root -m 644 "$SCRIPT_DIR/packages.microsoft.gpg" /etc/apt/keyrings/packages.microsoft.gpg
+    echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list > /dev/null
+    sudo apt update
+    sudo apt install -y code
+    
+    # Copy desktop file and add Wayland flag
+    mkdir -p ~/.local/share/applications
+    cp /usr/share/applications/code.desktop ~/.local/share/applications/
+    sed -i 's|^Exec=/usr/share/code/code|Exec=/usr/share/code/code --ozone-platform=wayland|g' ~/.local/share/applications/code.desktop
+    
+    # Add alias to shell configs
+    for rc_file in ~/.bashrc ~/.zshrc; do
+        if [ -f "$rc_file" ]; then
+            if ! grep -q "alias code=" "$rc_file"; then
+                echo "" >> "$rc_file"
+                echo "# VS Code Wayland support" >> "$rc_file"
+                echo "alias code='code --ozone-platform=wayland'" >> "$rc_file"
+            fi
+        fi
+    done
+    
+    echo "VS Code installed with Wayland support."
+    echo "Note: Alias added to ~/.bashrc and ~/.zshrc (restart shell to use)"
+fi
+
+# Optional: Install Oh My Zsh
+if [ "$INSTALL_OMZ" = true ]; then
+    echo ""
+    echo "================================================"
+    echo "Installing Oh My Zsh"
+    echo "================================================"
+    sudo apt install -y zsh
+    
+    # Change default shell
+    read -p "Do you want to set zsh as your default shell? (Y/n): " zsh_response
+    zsh_response=${zsh_response:-Y}
+    if [[ "$zsh_response" =~ ^[Yy]$ ]]; then
+        chsh -s "$(which zsh)"
+        echo "Default shell changed to zsh (will take effect on next login)"
+    fi
+    
+    # Install Oh My Zsh
+    if [ ! -d "$HOME/.oh-my-zsh" ]; then
+        echo "Installing Oh My Zsh..."
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+        echo "Oh My Zsh installed."
+    else
+        echo "Oh My Zsh is already installed."
+    fi
+fi
+
+# Optional: Install document viewers
+if [ "$INSTALL_DOCS" = true ]; then
+    echo ""
+    echo "================================================"
+    echo "Installing Document Viewers"
+    echo "================================================"
+    sudo apt install -y zathura zathura-pdf-poppler loupe
+    echo "Installed: zathura, zathura-pdf-poppler, loupe"
+fi
+
+# Optional: Install office tools
+if [ "$INSTALL_OFFICE" = true ]; then
+    echo ""
+    echo "================================================"
+    echo "Installing Office Tools"
+    echo "================================================"
+    sudo apt install -y abiword gnumeric patat
+    echo "Installed: abiword, gnumeric, patat"
+fi
+
+# Optional: Apply network and hardware fixes
+if [ "$APPLY_FIXES" = true ]; then
+    echo ""
+    echo "================================================"
+    echo "Applying Network & Hardware Fixes"
+    echo "================================================"
+    
+    # Install packages
+    sudo apt install -y network-manager bluez brightnessctl upower \
+        pipewire-audio-client-libraries libpam0g-dev \
+        firmware-linux firmware-iwlwifi firmware-realtek \
+        wlsunset nwg-look
+    
+    # Add user to groups
+    sudo usermod -aG netdev,bluetooth,video "$USER"
+    echo "Added $USER to groups: netdev, bluetooth, video"
+    
+    # Update NetworkManager configuration
+    NM_CONF="/etc/NetworkManager/NetworkManager.conf"
+    if [ -f "$NM_CONF" ]; then
+        sudo cp "$NM_CONF" "$NM_CONF.backup"
+        echo "Backed up $NM_CONF to $NM_CONF.backup"
+        
+        if grep -q "^managed=false" "$NM_CONF"; then
+            sudo sed -i 's/^managed=false/managed=true/' "$NM_CONF"
+            echo "Updated NetworkManager to managed=true"
+        fi
+    fiflight 6E17
+    
+    # Update network interfaces
+    INTERFACES="/etc/network/interfaces"
+    if [ -f "$INTERFACES" ]; then
+        sudo cp "$INTERFACES" "$INTERFACES.backup"
+        echo "Backed up $INTERFACES to $INTERFACES.backup"
+        
+        if grep -q "allow-hotplug wlan0" "$INTERFACES" || grep -q "iface wlan0" "$INTERFACES"; then
+            sudo sed -i '/allow-hotplug wlan0/s/^/# /' "$INTERFACES"
+            sudo sed -i '/iface wlan0/s/^/# /' "$INTERFACES"
+            echo "Commented out wlan0 entries in $INTERFACES"
+        fi
+    fi
+    
+    # Restart NetworkManager
+    read -p "Do you want to restart NetworkManager now? (Y/n): " nm_response
+    nm_response=${nm_response:-Y}
+    if [[ "$nm_response" =~ ^[Yy]$ ]]; then
+        sudo systemctl restart NetworkManager
+        echo "NetworkManager restarted."
+    else
+        echo "Remember to restart NetworkManager: sudo systemctl restart NetworkManager"
+    fi
+    
+    echo "Network & hardware fixes applied."
+fi
+
+# Final message
+if [ "$INSTALL_DEPS" = true ] || [ "$INSTALL_PACSTALL" = true ] || [ "$INSTALL_NIRI" = true ] || [ "$INSTALL_QUICKSHELL" = true ] || [ "$INSTALL_NOCTALIA" = true ] || [ "$INSTALL_VSCODE" = true ] || [ "$INSTALL_OMZ" = true ] || [ "$INSTALL_DOCS" = true ] || [ "$INSTALL_OFFICE" = true ] || [ "$APPLY_FIXES" = true ] || [ "$REMOVE_GNOME" = true ]; then
+    echo ""
+    echo "================================================"
+    echo "Installation complete!"
+    echo "================================================"
+    
+    if [ "$INSTALL_NIRI" = true ]; then
+        echo "You can now start niri with: niri"
+    fi
+fi
