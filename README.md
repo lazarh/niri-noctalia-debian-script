@@ -1,72 +1,162 @@
-# Niri / Quickshell Installer (combined)
+# Niri + Quickshell + Noctalia Installation Script
 
-This repository provides a single, opinionated installer script `install-all.sh` that automates installing and building:
+Automated installation script for setting up Niri compositor, Quickshell, and Noctalia shell on Debian 13.
 
-- Niri (Wayland compositor)
-- xwayland-satellite (rootless Xwayland helper)
-- Quickshell (Qt-based shell)
-- Noctalia shell assets (extracted into Quickshell config)
+## Overview
 
-**Important:** this installer performs system package installs and builds large projects (Qt6, Rust builds). Run it only on a machine where you are comfortable installing development packages and building from source.
+This script provides a complete installation workflow for:
+- **Niri**: A scrollable-tiling Wayland compositor
+- **Quickshell**: A QtQuick-based Wayland shell toolkit
+- **Noctalia**: A desktop shell for Quickshell
 
-**Quick start**
+## Prerequisites
 
-1. Make the script executable:
+- Debian 13 (Trixie)
+- Root/sudo access
+- Internet connection
+
+## Usage
+
+### Basic Installation
+
+Run the script to install all components automatically:
 
 ```bash
-chmod +x install-all.sh
+chmod +x install.sh
+./install.sh
 ```
 
-2. Run the installer (recommended):
+### Interactive Mode
+
+Use the `--ask-step` flag to get prompted before each installation step:
 
 ```bash
-sudo ./install-all.sh
+./install.sh --ask-step
 ```
 
-Running under `sudo` is fine: the script detects `SUDO_USER` and will run user-local steps (rustup, cargo installs, config extraction) as that non-root user so ownership and paths remain correct.
+This allows you to skip specific components if already installed or not needed.
 
-## Environment variables
+## Installation Steps
 
-- `NO_PACSTALL=1` — skip the optional `pacstall` step (recommended if you don't want to run third-party install scripts).
-- `NOCTALIA_TARBALL_URL="<url>"` — override the default Noctalia release tarball URL (the script extracts this into `~/.config/quickshell/noctalia-shell`).
+The script performs the following steps:
 
-## What the script does
+### [1/5] System Dependencies
+Installs all required build tools and libraries:
+- Build essentials (cmake, ninja-build, gcc, etc.)
+- Qt6 development packages (base, declarative, wayland with private headers)
+- Wayland libraries (protocols, client, scanner)
+- Graphics libraries (libdrm, libgbm, EGL)
+- Additional dependencies (PAM, polkit, jemalloc, CLI11)
+- GitHub CLI (gh)
 
-- Installs system packages (build tools, XCB dev libs, Qt6 dev packages used by Quickshell, and utilities).
-- Installs Rust (`rustup`) for the invoking user if missing, then builds Niri with `cargo` and runs `cargo install`.
-- Copies the resulting `niri` binary to `/usr/local/bin/niri` so display managers (GDM) can execute it.
-- Builds `xwayland-satellite` from source and installs it to `/usr/local/bin`.
-- Builds Quickshell with CMake/Ninja and installs it system-wide via `cmake --install`.
-- Installs a few helper tools (for example `matugen` via `cargo`) and optionally runs `pacstall` if not skipped.
-- Downloads and extracts the Noctalia release tarball into `~/.config/quickshell/noctalia-shell` for the invoking user.
-- Writes a Wayland session file at `/usr/share/wayland-sessions/niri.desktop` that points to `/usr/local/bin/niri`.
+**Post-install actions:**
+- Prompts for system reboot (due to systemd-resolved)
+- Checks GitHub authentication status and offers login
+
+### [2/5] Pacstall Package Manager
+Installs Pacstall, a community-driven package manager for Debian.
+
+### [3/5] Niri Compositor
+Installs the Niri Wayland compositor via Pacstall.
+
+### [4/5] Quickshell
+Builds and installs Quickshell from source:
+- Clones from official repository
+- Builds with CMake/Ninja
+- Crash handler disabled (no google-breakpad dependency)
+- Verifies installation
+
+### [5/5] Noctalia Shell Configuration
+Clones the Noctalia shell configuration to `~/.config/quickshell/noctalia-shell`.
+
+### Post-Installation
+
+If a `config.kdl` file exists in the same directory as the script, you'll be prompted to apply it as the Niri configuration.
+
+## Configuration
+
+### Niri Configuration
+
+Place a `config.kdl` file next to the install script to have it automatically copied to `~/.config/niri/config.kdl` during installation.
+
+### GitHub Authentication
+
+The script checks if GitHub CLI is authenticated. This is useful for:
+- Cloning private repositories
+- Avoiding rate limits
+- Contributing to projects
+
+If not authenticated, you'll be prompted to run `gh auth login`.
+
+## Starting Niri
+
+After installation completes, you can start Niri with:
+
+```bash
+niri
+```
+
+Or add it as a session option in your display manager.
+
+## Dependencies Installed
+
+### Build Tools
+- cmake, ninja-build, build-essential
+- pkg-config, spirv-tools
+
+### Qt6 Packages
+- qt6-base-dev, qt6-base-private-dev
+- qt6-declarative-dev, qt6-declarative-private-dev
+- qt6-wayland-dev, qt6-wayland-private-dev
+- qt6-shadertools-dev
+
+### System Libraries
+- libwayland-dev, wayland-protocols
+- libdrm-dev, libgbm-dev, libegl1-mesa-dev
+- libpolkit-agent-1-dev
+- libpam0g-dev
+- libjemalloc-dev
+- libcli11-dev
+
+### Utilities
+- gh (GitHub CLI)
+- systemd-resolved
 
 ## Troubleshooting
 
-- If `apt` fails to find a package (especially Qt6 dev packages), your apt sources may not include the required repositories. Inspect the failed `apt` output and add the necessary sources or install those packages manually.
-- If `cargo build` fails, copy the cargo error output and re-run the failing `cargo build` command manually as the invoking user — commonly missing native dev packages or incorrect toolchain versions cause failures.
-- If `niri` warns about `xwayland-satellite` missing at runtime, verify the installed binary exists in the path visible to the compositor session:
+### Reboot Required
+If you experience DNS resolution issues after installation, reboot your system to properly initialize systemd-resolved.
 
+### GitHub Authentication
+If you skip GitHub authentication and later need it:
 ```bash
-which xwayland-satellite || ls -l /usr/local/bin/xwayland-satellite
-which niri || ls -l /usr/local/bin/niri ~/.cargo/bin/niri
+gh auth login
 ```
 
-- If your display manager does not show the Niri session, ensure `/usr/share/wayland-sessions/niri.desktop` exists and its `Exec` points to `/usr/local/bin/niri`. Some DMs require a session restart:
-
+### Build Failures
+If Quickshell build fails due to missing dependencies, ensure all Qt6 private development packages are installed:
 ```bash
-sudo systemctl restart display-manager   # careful: this ends the graphical session
+sudo apt install qt6-base-private-dev qt6-declarative-private-dev qt6-wayland-private-dev
 ```
 
-## Recommendations and options
+### Quickshell Not Found
+After installation, if `quickshell` is not found, ensure the installation directory is in your PATH, or log out and back in.
 
-- If you prefer not to copy the `niri` binary system-wide, I can change the script to create a small wrapper at `/usr/local/bin/niri` that execs the invoking user's `~/.cargo/bin/niri` instead.
-- If you only want Niri (not Quickshell), or only Quickshell, tell me and I will add flags (e.g. `--no-quickshell`) to make the installer modular.
+## Repository Structure
 
-## Support
+```
+.
+├── install.sh          # Main installation script
+├── config.kdl          # Optional Niri configuration
+└── README.md           # This file
+```
 
-If anything fails when you run `install-all.sh`, paste the failing command output here and I will help fix the script or the missing dependencies.
+## License
 
-## License & notes
+This installation script is provided as-is. Individual components (Niri, Quickshell, Noctalia) have their own licenses.
 
-This repository contains installer scripts and instructions only. The projects built by the script (Niri, Quickshell, xwayland-satellite, Noctalia) are external — review their upstream licenses and documentation for runtime and build notes.
+## Credits
+
+- **Niri**: [YaLTeR/niri](https://github.com/YaLTeR/niri)
+- **Quickshell**: [outfoxxed/quickshell](https://git.outfoxxed.me/quickshell/quickshell)
+- **Noctalia**: [outfoxxed/noctalia-shell](https://github.com/outfoxxed/noctalia-shell)

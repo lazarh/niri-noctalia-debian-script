@@ -17,9 +17,13 @@ input {
     }
 
     touchpad {
-        tap
+	tap
         natural-scroll
-	accel-speed 0.5
+        accel-speed 0.5
+        accel-profile "adaptive" // Helps with precise movement vs. fast swipes
+        scroll-factor 0.7        // Lower than 1.0 makes workspace switching less "jumpy"
+        tap-button-map "left-right-middle" // Changes how 2 vs 3 finger taps are handled
+        click-method "clickfinger"         // Recommended for modern gesture-heavy trackpads
     }
 
     mouse {
