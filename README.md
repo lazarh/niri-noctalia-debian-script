@@ -160,3 +160,49 @@ This installation script is provided as-is. Individual components (Niri, Quicksh
 - **Niri**: [YaLTeR/niri](https://github.com/YaLTeR/niri)
 - **Quickshell**: [outfoxxed/quickshell](https://git.outfoxxed.me/quickshell/quickshell)
 - **Noctalia**: [outfoxxed/noctalia-shell](https://github.com/outfoxxed/noctalia-shell)
+
+# TODO 
+- Add option to remove GDM3 and gnome-shell via below commands
+```bash
+systemctl stop gdm3
+apt purge gnome-core gnome-shell gdm3
+apt autoremove --purge
+sudo apt purge gnome-session gnome-settings-daemon gnome-terminal
+systemctl set-default multi-user.target
+```
+- Add menu for user to select which step or option to go with
+- Add option to install vscode via below
+```bash
+sudo apt install wget gpg apt-transport-https
+wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
+sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg
+echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list > /dev/null
+sudo apt update
+sudo apt install code
+cp /usr/share/applications/code.desktop ~/.local/share/applications/
+vim ~/.local/share/applications/code.desktop # add --ozone-platform=wayland to Exec
+vim ~/.zshrc # add alias code with --ozone-platform=wayland
+```
+- Add option to install oh my zsh via below
+```bash
+sudo apt install zsh
+chsh -s $(which zsh) 
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+```
+- Add option to install zathura and loupe
+```bash
+sudo apt install zathura zathura-pdf-poppler loupe
+```
+- Add option to install patat, gnumeric and abiword
+```bash
+sudo apt install abiword gnumeric patat
+```
+- Fixes
+```bash
+sudo apt install network-manager bluez brightnessctl upower pipewire-audio-client-libraries libpam0g-dev firmware-linux firmware-iwlwifi firmware-realtek wlsunset nwg-look
+sudo usermod -aG netdev,bluetooth,video $USER
+sudo vim /etc/NetworkManager/NetworkManager.conf # update to managed=true
+sudo vim /etc/network/interfaces # comment allow-hotplug wlan0 and iface wlan0
+sudo systemctl restart NetworkManager\n
+```
+
