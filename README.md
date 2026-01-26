@@ -32,11 +32,12 @@ Use the `--menu` flag to select which components to install:
 
 ```bash
 ./install.sh --menu
-```
+```a
 
 This shows an interactive menu where you can choose:
 - Core components (1-5): System dependencies, Pacstall, Niri, Quickshell, Noctalia
-- Optional components (6-11): VS Code, Oh My Zsh, document viewers, office tools, network fixes, GNOME removal
+- Upgrade options (U1-UA): Upgrade individual components or all at once
+- Optional components (6-12): VS Code, Oh My Zsh, document viewers, office tools, network fixes, GNOME removal, wallpaper changer
 
 ### Interactive Mode
 
@@ -53,6 +54,12 @@ This allows you to skip specific components if already installed or not needed.
 Install specific optional components directly:
 
 ```bash
+# Upgrade components
+./install.sh --upgrade niri           # Upgrade only Niri
+./install.sh --upgrade quickshell     # Upgrade only Quickshell
+./install.sh --upgrade noctalia       # Upgrade only Noctalia configuration
+./install.sh --upgrade all            # Upgrade all components
+
 # Install VS Code with Wayland support
 ./install.sh --install-vscode
 
@@ -67,6 +74,9 @@ Install specific optional components directly:
 
 # Apply network & hardware fixes
 ./install.sh --apply-fixes
+
+# Install random wallpaper changer (systemd timer)
+./install.sh --install-wallpaper
 
 # Remove GNOME/GDM3 (WARNING: removes desktop environment)
 ./install.sh --remove-gnome
@@ -152,6 +162,13 @@ If a `config.kdl` file exists in the same directory as the script, you'll be pro
 - Comments out wlan0 entries in `/etc/network/interfaces`
 - Backs up configuration files before modifying
 
+### Random Wallpaper Changer (`--install-wallpaper`)
+- Creates a script at `~/.local/bin/noctalia-random-wallpaper.sh`
+- Sets up systemd service and timer files
+- Automatically rotates wallpaper every 30 minutes
+- Uses Noctalia IPC to change wallpaper
+- Timer starts on boot and runs continuously
+
 ### Remove GNOME/GDM3 (`--remove-gnome`)
 - **WARNING**: This removes your desktop environment
 - Stops GDM3 service
@@ -159,6 +176,22 @@ If a `config.kdl` file exists in the same directory as the script, you'll be pro
 - Runs autoremove to clean up dependencies
 - Sets system to boot to multi-user target (console mode)
 - Requires typing "yes" to confirm
+
+## Upgrading Components
+
+The script includes an upgrade mode to update already-installed components:
+
+```bash
+# Upgrade individual components
+./install.sh --upgrade niri           # Updates Niri via Pacstall
+./install.sh --upgrade quickshell     # Rebuilds Quickshell from latest source
+./install.sh --upgrade noctalia       # Pulls latest Noctalia configuration
+
+# Upgrade everything at once
+./install.sh --upgrade all            # Updates all three components
+```
+
+**Note**: When using `--upgrade`, only the specified components are updated. Other installation options are ignored.
 
 ## Configuration
 
