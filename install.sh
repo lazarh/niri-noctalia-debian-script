@@ -11,6 +11,7 @@ INSTALL_DOCS=false
 INSTALL_OFFICE=false
 APPLY_FIXES=false
 REMOVE_GNOME=false
+UPGRADE_MODE=""
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -47,12 +48,22 @@ while [[ $# -gt 0 ]]; do
             REMOVE_GNOME=true
             shift
             ;;
+        --upgrade)
+            if [[ -n "$2" && ! "$2" =~ ^-- ]]; then
+                UPGRADE_MODE="$2"
+                shift 2
+            else
+                echo "Error: --upgrade requires an argument (niri, quickshell, noctalia, or all)"
+                exit 1
+            fi
+            ;;
         --help)
             echo "Usage: $0 [OPTIONS]"
             echo ""
             echo "Options:"
             echo "  --ask-step        Interactive mode - prompt before each core installation step"
             echo "  --menu            Show interactive menu to select components"
+            echo "  --upgrade <type>  Upgrade components: niri, quickshell, noctalia, or all"
             echo "  --install-vscode  Install Visual Studio Code with Wayland support"
             echo "  --install-omz     Install Oh My Zsh"
             echo "  --install-docs    Install zathura and loupe (document viewers)"
@@ -85,6 +96,12 @@ show_interactive_menu() {
     echo "  [4] Quickshell"
     echo "  [5] Noctalia-shell configuration"
     echo ""
+    echo "Upgrade Options:"
+    echo "  [U1] Upgrade Niri"
+    echo "  [U2] Upgrade Quickshell"
+    echo "  [U3] Upgrade Noctalia-shell"
+    echo "  [UA] Upgrade all (Niri + Quickshell + Noctalia)"
+    echo ""
     echo "Optional Components:"
     echo "  [6] Visual Studio Code (with Wayland support)"
     echo "  [7] Oh My Zsh"
@@ -112,6 +129,10 @@ show_interactive_menu() {
             9) INSTALL_OFFICE=true ;;
             10) APPLY_FIXES=true ;;
             11) REMOVE_GNOME=true ;;
+            [Uu]1) UPGRADE_MODE="niri" ;;
+            [Uu]2) UPGRADE_MODE="quickshell" ;;
+            [Uu]3) UPGRADE_MODE="noctalia" ;;
+            [Uu][Aa]) UPGRADE_MODE="all" ;;
             [Aa]) 
                 INSTALL_DEPS=true
                 INSTALL_PACSTALL=true
@@ -141,12 +162,14 @@ INSTALL_NOCTALIA=false
 if [ "$SHOW_MENU" = true ]; then
     show_interactive_menu
 else
-    # Default: install all core components unless using --ask-step
-    INSTALL_DEPS=true
-    INSTALL_PACSTALL=true
-    INSTALL_NIRI=true
-    INSTALL_QUICKSHELL=true
-    INSTALL_NOCTALIA=true
+    # Default: install all core components unless using --ask-step or --upgrade
+    if [ -z "$UPGRADE_MODE" ]; then
+        INSTALL_DEPS=true
+        INSTALL_PACSTALL=true
+        INSTALL_NIRI=true
+        INSTALL_QUICKSHELL=true
+        INSTALL_NOCTALIA=true
+    fi
 fi
 
 # Function to ask user if they want to skip a step
@@ -163,6 +186,96 @@ ask_skip() {
     fi
     return 0
 }
+
+# Handle upgrade mode
+if [ -n "$UPGRADE_MODE" ]; then
+    echo "================================================"
+    echo "Niri + Quickshell + Noctalia Upgrade Script"
+    echo "================================================"
+    echo "Upgrade mode: $UPGRADE_MODE"
+    echo ""
+    
+    case "$UPGRADE_MODE" in
+        niri)
+            echo "Upgrading Niri..."
+            pacstall -I niri
+            echo "Niri upgrade complete!"
+            ;;
+        quickshell)
+            echo "Upgrading Quickshell..."
+            TEMP_DIR=$(mktemp -d)
+            cd "$TEMP_DIR"
+            git clone https://git.outfoxxed.me/quickshell/quickshell
+            cd quickshell
+            cmake -B build -G Ninja -DCRASH_REPORTER=OFF
+            cmake --build build
+            sudo cmake --install build
+            quickshell --version
+            cd ~
+            rm -rf "$TEMP_DIR"
+            echo "Quickshell upgrade complete!"
+            ;;
+        noctalia)
+            echo "Upgrading Noctalia-shell..."
+            if [ -d ~/.config/quickshell/noctalia-shell ]; then
+                cd ~/.config/quickshell/noctalia-shell
+                git pull
+                echo "Noctalia-shell upgrade complete!"
+            else
+                echo "Error: Noctalia-shell not found at ~/.config/quickshell/noctalia-shell"
+                echo "Please install it first using the installation script."
+                exit 1
+            fi
+            ;;
+        all)
+            echo "Upgrading all components (Niri + Quickshell + Noctalia)..."
+            echo ""
+            
+            echo "[1/3] Upgrading Niri..."
+            pacstall -I niri
+            echo "Niri upgrade complete!"
+            echo ""
+            
+            echo "[2/3] Upgrading Quickshell..."
+            TEMP_DIR=$(mktemp -d)
+            cd "$TEMP_DIR"
+            git clone https://git.outfoxxed.me/quickshell/quickshell
+            cd quickshell
+            cmake -B build -G Ninja -DCRASH_REPORTER=OFF
+            cmake --build build
+            sudo cmake --install build
+            quickshell --version
+            cd ~
+            rm -rf "$TEMP_DIR"
+            echo "Quickshell upgrade complete!"
+            echo ""
+            
+            echo "[3/3] Upgrading Noctalia-shell..."
+            if [ -d ~/.config/quickshell/noctalia-shell ]; then
+                cd ~/.config/quickshell/noctalia-shell
+                git pull
+                echo "Noctalia-shell upgrade complete!"
+            else
+                echo "Warning: Noctalia-shell not found at ~/.config/quickshell/noctalia-shell"
+                echo "Skipping noctalia-shell upgrade."
+            fi
+            echo ""
+            
+            echo "All components upgraded successfully!"
+            ;;
+        *)
+            echo "Error: Invalid upgrade type '$UPGRADE_MODE'"
+            echo "Valid options: niri, quickshell, noctalia, all"
+            exit 1
+            ;;
+    esac
+    
+    echo ""
+    echo "================================================"
+    echo "Upgrade complete!"
+    echo "================================================"
+    exit 0
+fi
 
 echo "================================================"
 echo "Niri + Quickshell + Noctalia Installation Script"
