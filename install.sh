@@ -12,6 +12,7 @@ INSTALL_OFFICE=false
 APPLY_FIXES=false
 REMOVE_GNOME=false
 UPGRADE_MODE=""
+INSTALL_WALLPAPER=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -57,6 +58,10 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             ;;
+        --install-wallpaper)
+            INSTALL_WALLPAPER=true
+            shift
+            ;;
         --help)
             echo "Usage: $0 [OPTIONS]"
             echo ""
@@ -70,6 +75,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --install-office  Install patat, gnumeric, and abiword"
             echo "  --apply-fixes     Apply network & hardware fixes (NetworkManager, firmware, etc.)"
             echo "  --remove-gnome    Remove GDM3 and GNOME packages (WARNING: removes desktop environment)"
+            echo "  --install-wallpaper Install random wallpaper changer (systemd timer)"
             echo "  --help            Show this help message"
             echo ""
             exit 0
@@ -109,6 +115,7 @@ show_interactive_menu() {
     echo "  [9] Office tools (patat, gnumeric, abiword)"
     echo "  [10] Network & hardware fixes"
     echo "  [11] Remove GNOME/GDM3 (WARNING: removes desktop)"
+    echo "  [12] Random wallpaper changer (systemd timer)"
     echo ""
     echo "  [A] Install all core components (1-5)"
     echo "  [Q] Quit"
@@ -133,6 +140,7 @@ show_interactive_menu() {
             [Uu]2) UPGRADE_MODE="quickshell" ;;
             [Uu]3) UPGRADE_MODE="noctalia" ;;
             [Uu][Aa]) UPGRADE_MODE="all" ;;
+            12) INSTALL_WALLPAPER=true ;;
             [Aa]) 
                 INSTALL_DEPS=true
                 INSTALL_PACSTALL=true
@@ -525,7 +533,7 @@ if [ "$APPLY_FIXES" = true ]; then
             sudo sed -i 's/^managed=false/managed=true/' "$NM_CONF"
             echo "Updated NetworkManager to managed=true"
         fi
-    fiflight 6E17
+    fi
     
     # Update network interfaces
     INTERFACES="/etc/network/interfaces"
@@ -553,8 +561,60 @@ if [ "$APPLY_FIXES" = true ]; then
     echo "Network & hardware fixes applied."
 fi
 
+# Optional: Install random wallpaper changer
+if [ "$INSTALL_WALLPAPER" = true ]; then
+    echo ""
+    echo "================================================"
+    echo "Installing Random Wallpaper Changer"
+    echo "================================================"
+    
+    # Create directories
+    mkdir -p ~/.local/bin
+    mkdir -p ~/.config/systemd/user
+    
+    # Create the wallpaper script
+    cat > ~/.local/bin/noctalia-random-wallpaper.sh << 'EOF'
+#!/bin/bash
+qs -c noctalia-shell ipc call wallpaper random
+EOF
+    chmod +x ~/.local/bin/noctalia-random-wallpaper.sh
+    echo "Created ~/.local/bin/noctalia-random-wallpaper.sh"
+    
+    # Create systemd service file
+    cat > ~/.config/systemd/user/noctalia-wallpaper.service << 'EOF'
+[Unit]
+Description=Random wallpaper via Noctalia IPC
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/noctalia-random-wallpaper.sh
+EOF
+    echo "Created ~/.config/systemd/user/noctalia-wallpaper.service"
+    
+    # Create systemd timer file
+    cat > ~/.config/systemd/user/noctalia-wallpaper.timer << 'EOF'
+[Unit]
+Description=Rotate Noctalia wallpaper every 30 minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=30min
+Unit=noctalia-wallpaper.service
+
+[Install]
+WantedBy=default.target
+EOF
+    echo "Created ~/.config/systemd/user/noctalia-wallpaper.timer"
+    
+    # Enable and start the timer
+    systemctl --user daemon-reload
+    systemctl --user enable --now noctalia-wallpaper.timer
+    echo "Enabled and started noctalia-wallpaper.timer"
+    echo "Wallpaper will change every 30 minutes"
+fi
+
 # Final message
-if [ "$INSTALL_DEPS" = true ] || [ "$INSTALL_PACSTALL" = true ] || [ "$INSTALL_NIRI" = true ] || [ "$INSTALL_QUICKSHELL" = true ] || [ "$INSTALL_NOCTALIA" = true ] || [ "$INSTALL_VSCODE" = true ] || [ "$INSTALL_OMZ" = true ] || [ "$INSTALL_DOCS" = true ] || [ "$INSTALL_OFFICE" = true ] || [ "$APPLY_FIXES" = true ] || [ "$REMOVE_GNOME" = true ]; then
+if [ "$INSTALL_DEPS" = true ] || [ "$INSTALL_PACSTALL" = true ] || [ "$INSTALL_NIRI" = true ] || [ "$INSTALL_QUICKSHELL" = true ] || [ "$INSTALL_NOCTALIA" = true ] || [ "$INSTALL_VSCODE" = true ] || [ "$INSTALL_OMZ" = true ] || [ "$INSTALL_DOCS" = true ] || [ "$INSTALL_OFFICE" = true ] || [ "$APPLY_FIXES" = true ] || [ "$REMOVE_GNOME" = true ] || [ "$INSTALL_WALLPAPER" = true ]; then
     echo ""
     echo "================================================"
     echo "Installation complete!"
