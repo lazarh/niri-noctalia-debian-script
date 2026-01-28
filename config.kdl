@@ -87,7 +87,8 @@ layout {
 spawn-sh-at-startup "qs -c ~/.config/quickshell/noctalia-shell/"
 spawn-sh-at-startup "wl-paste --watch cliphist store &"
 spawn-at-startup "dbus-update-activation-environment" "--systemd" "WAYLAND_DISPLAY" "XDG_CURRENT_DESKTOP"
- 
+spawn-at-startup "swayidle" "-w" "before-sleep" "qs -c noctalia-shell ipc call lockScreen lock"
+
 hotkey-overlay {
 }
 

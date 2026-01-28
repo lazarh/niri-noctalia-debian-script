@@ -304,7 +304,7 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6
         qt6-wayland-dev qt6-wayland-private-dev \
         qt6-shadertools-dev spirv-tools pkg-config libcli11-dev \
         wayland-protocols libwayland-dev libdrm-dev libgbm-dev libegl1-mesa-dev \
-        libpolkit-agent-1-dev libjemalloc-dev libpam0g-dev gh
+        libpolkit-agent-1-dev libjemalloc-dev libpam0g-dev gh swayidle
     
     # Ask if user wants to reboot due to systemd-resolved
     echo ""
