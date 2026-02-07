@@ -305,7 +305,21 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6
         qt6-shadertools-dev spirv-tools pkg-config libcli11-dev \
         wayland-protocols libwayland-dev libdrm-dev libgbm-dev libegl1-mesa-dev \
         libpolkit-agent-1-dev libjemalloc-dev libpam0g-dev gh swayidle
-    
+
+    # Download and install libdisplay-info3 (latest version)
+    echo "Downloading and installing libdisplay-info3..."
+    LIBDISPLAY_URL=$(wget -qO- http://ftp.debian.org/debian/pool/main/libd/libdisplay-info/ | grep -oP 'libdisplay-info3_[^"]+_amd64\.deb' | sort -V | tail -1)
+    if [ -n "$LIBDISPLAY_URL" ]; then
+        TEMP_DEB=$(mktemp)
+        wget -O "$TEMP_DEB" "http://ftp.debian.org/debian/pool/main/libd/libdisplay-info/$LIBDISPLAY_URL"
+        sudo dpkg -i "$TEMP_DEB"
+        rm -f "$TEMP_DEB"
+        echo "Installed: $LIBDISPLAY_URL"
+    else
+        echo "Warning: Could not find libdisplay-info3 package, trying apt install..."
+        sudo apt install -y libdisplay-info3 || echo "Failed to install libdisplay-info3"
+    fi
+
     # Ask if user wants to reboot due to systemd-resolved
     echo ""
     read -p "systemd-resolved was installed. Do you want to reboot now? (y/N): " reboot_response
