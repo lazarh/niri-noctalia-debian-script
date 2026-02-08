@@ -100,7 +100,7 @@ show_interactive_menu() {
     echo "  [2] Pacstall package manager"
     echo "  [3] Niri compositor"
     echo "  [4] Quickshell"
-    echo "  [5] Noctalia-shell configuration"
+    echo "  [5] Noctalia-shell"
     echo ""
     echo "Upgrade Options:"
     echo "  [U1] Upgrade Niri"
@@ -213,7 +213,7 @@ if [ -n "$UPGRADE_MODE" ]; then
             echo "Upgrading Quickshell..."
             TEMP_DIR=$(mktemp -d)
             cd "$TEMP_DIR"
-            git clone https://git.outfoxxed.me/quickshell/quickshell
+            git clone --depth=1 https://git.outfoxxed.me/quickshell/quickshell
             cd quickshell
             cmake -B build -G Ninja -DCRASH_REPORTER=OFF
             cmake --build build
@@ -247,7 +247,7 @@ if [ -n "$UPGRADE_MODE" ]; then
             echo "[2/3] Upgrading Quickshell..."
             TEMP_DIR=$(mktemp -d)
             cd "$TEMP_DIR"
-            git clone https://git.outfoxxed.me/quickshell/quickshell
+            git clone --depth=1 https://git.outfoxxed.me/quickshell/quickshell
             cd quickshell
             cmake -B build -G Ninja -DCRASH_REPORTER=OFF
             cmake --build build
@@ -374,7 +374,7 @@ fi
 if [ "$INSTALL_QUICKSHELL" = true ] && ask_skip "quickshell (will be built from source)"; then
     TEMP_DIR=$(mktemp -d)
     cd "$TEMP_DIR"
-    git clone https://git.outfoxxed.me/quickshell/quickshell
+    git clone --depth=1 https://git.outfoxxed.me/quickshell/quickshell
     cd quickshell
     cmake -B build -G Ninja -DCRASH_REPORTER=OFF
     cmake --build build
@@ -390,7 +390,7 @@ if [ "$INSTALL_NOCTALIA" = true ]; then
 fi
 if [ "$INSTALL_NOCTALIA" = true ] && ask_skip "noctalia-shell configuration"; then
     mkdir -p ~/.config/quickshell
-    git clone https://github.com/noctalia-dev/noctalia-shell ~/.config/quickshell/noctalia-shell
+    git clone --depth=1 https://github.com/noctalia-dev/noctalia-shell ~/.config/quickshell/noctalia-shell
 fi
 
 # Cleanup
