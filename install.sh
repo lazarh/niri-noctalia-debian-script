@@ -2,6 +2,9 @@
 
 set -e  # Exit on error
 
+# Installation state file
+STATE_FILE="/tmp/niri-install-state"
+
 # Configuration flags
 ASK_STEP=false
 SHOW_MENU=false
@@ -292,12 +295,24 @@ if [ "$ASK_STEP" = true ]; then
     echo "Running in interactive mode (--ask-step)"
 fi
 
+# Check if we're resuming after reboot
+if [ -f "$STATE_FILE" ]; then
+    echo "================================================"
+    echo "Resuming installation after reboot..."
+    echo "================================================"
+    source "$STATE_FILE"
+    RESUMING=true
+else
+    RESUMING=false
+fi
+
 # Update package list and install dependencies
 if [ "$INSTALL_DEPS" = true ]; then
     echo ""
     echo "[1/5] System dependencies"
 fi
-if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6, and quickshell prerequisites)"; then
+
+if [ "$INSTALL_DEPS" = true ] && [ "$RESUMING" = false ] && ask_skip "system dependencies (build tools, Qt6, and quickshell prerequisites)"; then
     sudo apt update
     sudo apt install -y sudo gpg curl git cmake ninja-build build-essential systemd-resolved \
         qt6-base-dev qt6-base-private-dev qt6-declarative-dev qt6-declarative-private-dev \
@@ -306,7 +321,57 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6
         wayland-protocols libwayland-dev libdrm-dev libgbm-dev libegl1-mesa-dev \
         libpolkit-agent-1-dev libjemalloc-dev libpam0g-dev gh swayidle
 
+    # Save installation state for post-reboot
+    echo "INSTALL_DEPS=true" > "$STATE_FILE"
+    echo "INSTALL_PACSTALL=$INSTALL_PACSTALL" >> "$STATE_FILE"
+    echo "INSTALL_NIRI=$INSTALL_NIRI" >> "$STATE_FILE"
+    echo "INSTALL_QUICKSHELL=$INSTALL_QUICKSHELL" >> "$STATE_FILE"
+    echo "INSTALL_NOCTALIA=$INSTALL_NOCTALIA" >> "$STATE_FILE"
+    echo "INSTALL_VSCODE=$INSTALL_VSCODE" >> "$STATE_FILE"
+    echo "INSTALL_OMZ=$INSTALL_OMZ" >> "$STATE_FILE"
+    echo "INSTALL_DOCS=$INSTALL_DOCS" >> "$STATE_FILE"
+    echo "INSTALL_OFFICE=$INSTALL_OFFICE" >> "$STATE_FILE"
+    echo "APPLY_FIXES=$APPLY_FIXES" >> "$STATE_FILE"
+    echo "REMOVE_GNOME=$REMOVE_GNOME" >> "$STATE_FILE"
+    echo "INSTALL_WALLPAPER=$INSTALL_WALLPAPER" >> "$STATE_FILE"
+    echo "ASK_STEP=$ASK_STEP" >> "$STATE_FILE"
+    echo "SCRIPT_PATH=$(readlink -f "${BASH_SOURCE[0]}")" >> "$STATE_FILE"
+
+    echo ""
+    echo "================================================"
+    echo "systemd-resolved installed - Reboot required"
+    echo "================================================"
+    echo "System will reboot to activate network services."
+    echo "After reboot, run this script again to continue:"
+    echo "  bash $(readlink -f "${BASH_SOURCE[0]}")"
+    echo ""
+    read -p "Press Enter to reboot now..." 
+    sudo reboot
+    exit 0
+fi
+
+# Post-reboot: Verify dependencies and install libdisplay-info3
+if [ "$RESUMING" = true ] && [ "$INSTALL_DEPS" = true ]; then
+    echo ""
+    echo "Verifying system dependencies..."
+    
+    # Verify systemd-resolved is running
+    if systemctl is-active --quiet systemd-resolved; then
+        echo "✓ systemd-resolved is active"
+    else
+        echo "⚠ systemd-resolved is not active, attempting to start..."
+        sudo systemctl start systemd-resolved
+        sudo systemctl enable systemd-resolved
+    fi
+    
+    # Verify key packages are installed
+    echo "Checking installed packages..."
+    dpkg -l | grep -q "ii  cmake" && echo "✓ cmake installed" || echo "✗ cmake missing"
+    dpkg -l | grep -q "ii  git" && echo "✓ git installed" || echo "✗ git missing"
+    dpkg -l | grep -q "ii  qt6-base-dev" && echo "✓ qt6-base-dev installed" || echo "✗ qt6-base-dev missing"
+    
     # Download and install libdisplay-info3 (latest version)
+    echo ""
     echo "Downloading and installing libdisplay-info3..."
     LIBDISPLAY_URL=$(wget -qO- http://ftp.debian.org/debian/pool/main/libd/libdisplay-info/ | grep -oP 'libdisplay-info3_[^"]+_amd64\.deb' | sort -V | tail -1)
     if [ -n "$LIBDISPLAY_URL" ]; then
@@ -314,21 +379,10 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6
         wget -O "$TEMP_DEB" "http://ftp.debian.org/debian/pool/main/libd/libdisplay-info/$LIBDISPLAY_URL"
         sudo dpkg -i "$TEMP_DEB"
         rm -f "$TEMP_DEB"
-        echo "Installed: $LIBDISPLAY_URL"
+        echo "✓ Installed: $LIBDISPLAY_URL"
     else
         echo "Warning: Could not find libdisplay-info3 package, trying apt install..."
         sudo apt install -y libdisplay-info3 || echo "Failed to install libdisplay-info3"
-    fi
-
-    # Ask if user wants to reboot due to systemd-resolved
-    echo ""
-    read -p "systemd-resolved was installed. Do you want to reboot now? (y/N): " reboot_response
-    reboot_response=${reboot_response:-N}
-    if [[ "$reboot_response" =~ ^[Yy]$ ]]; then
-        echo "Rebooting system..."
-        sudo reboot
-    else
-        echo "Continuing installation (you may need to reboot later)..."
     fi
     
     # Check GitHub authentication
@@ -342,8 +396,13 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6
             echo "Skipping GitHub authentication (you can run 'gh auth login' later)..."
         fi
     else
-        echo "GitHub CLI is already authenticated."
+        echo "✓ GitHub CLI is already authenticated."
     fi
+    
+    # Clear resuming state
+    INSTALL_DEPS=false
+    echo ""
+    echo "Dependencies verification complete, continuing installation..."
 fi
 
 # Install Pacstall package manager
@@ -396,6 +455,11 @@ fi
 # Cleanup
 if [ -n "$TEMP_DIR" ] && [ -d "$TEMP_DIR" ]; then
     rm -rf "$TEMP_DIR"
+fi
+
+# Clean up state file if installation completed successfully
+if [ "$RESUMING" = true ]; then
+    rm -f "$STATE_FILE"
 fi
 
 # Apply niri configuration (only if niri was installed)
