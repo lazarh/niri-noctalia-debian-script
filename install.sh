@@ -299,7 +299,7 @@ if [ "$INSTALL_DEPS" = true ]; then
 fi
 if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6, and quickshell prerequisites)"; then
     sudo apt update
-    sudo apt install -y sudo gpg curl git cmake ninja-build build-essential systemd-resolved \
+    sudo apt install -y sudo gpg curl git cmake ninja-build build-essential \
         qt6-base-dev qt6-base-private-dev qt6-declarative-dev qt6-declarative-private-dev \
         qt6-wayland-dev qt6-wayland-private-dev \
         qt6-shadertools-dev spirv-tools pkg-config libcli11-dev \
@@ -318,17 +318,6 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6
     else
         echo "Warning: Could not find libdisplay-info3 package, trying apt install..."
         sudo apt install -y libdisplay-info3 || echo "Failed to install libdisplay-info3"
-    fi
-
-    # Ask if user wants to reboot due to systemd-resolved
-    echo ""
-    read -p "systemd-resolved was installed. Do you want to reboot now? (y/N): " reboot_response
-    reboot_response=${reboot_response:-N}
-    if [[ "$reboot_response" =~ ^[Yy]$ ]]; then
-        echo "Rebooting system..."
-        sudo reboot
-    else
-        echo "Continuing installation (you may need to reboot later)..."
     fi
 fi
 

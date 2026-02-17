@@ -107,8 +107,7 @@ Installs all required build tools and libraries:
 - Graphics libraries (libdrm, libgbm, EGL)
 - Additional dependencies (PAM, polkit, jemalloc, CLI11)
 
-**Post-install actions:**
-- Prompts for system reboot (due to systemd-resolved)
+
 
 ### [2/5] Pacstall Package Manager
 Installs Pacstall, a community-driven package manager for Debian.
@@ -232,13 +231,9 @@ Or add it as a session option in your display manager.
 - libcli11-dev
 
 ### Utilities
-- systemd-resolved
 - swayidle
 
 ## Troubleshooting
-
-### Reboot Required
-If you experience DNS resolution issues after installation, reboot your system to properly initialize systemd-resolved.
 
 ### Build Failures
 If Quickshell build fails due to missing dependencies, ensure all Qt6 private development packages are installed:
