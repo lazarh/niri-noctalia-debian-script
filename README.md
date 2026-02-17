@@ -1,6 +1,6 @@
 # Niri + Quickshell + Noctalia Installation Script
 
-Automated installation script for setting up Niri compositor, Quickshell, and Noctalia shell on Debian 13.
+Automated installation script for setting up Niri compositor, Quickshell, and Noctalia shell on Debian-based systems.
 
 ## Overview
 
@@ -11,9 +11,13 @@ This script provides a complete installation workflow for:
 
 ## Prerequisites
 
-- Debian 13 (Trixie)
+- **Debian 13 (Trixie)** or **Debian Forky** (minimal installation recommended)
 - Root/sudo access
 - Internet connection
+- **Minimal Debian installation without graphical environment** (recommended)
+  - This script is designed to run on a fresh, minimal Debian installation
+  - It will install all necessary components to create a complete Wayland desktop environment
+  - If you have an existing desktop environment (GNOME, KDE, etc.), you may want to remove it first using `--remove-gnome` or manually
 
 ## Usage
 
@@ -32,7 +36,7 @@ Use the `--menu` flag to select which components to install:
 
 ```bash
 ./install.sh --menu
-```a
+```
 
 This shows an interactive menu where you can choose:
 - Core components (1-5): System dependencies, Pacstall, Niri, Quickshell, Noctalia
@@ -102,11 +106,9 @@ Installs all required build tools and libraries:
 - Wayland libraries (protocols, client, scanner)
 - Graphics libraries (libdrm, libgbm, EGL)
 - Additional dependencies (PAM, polkit, jemalloc, CLI11)
-- GitHub CLI (gh)
 
 **Post-install actions:**
 - Prompts for system reboot (due to systemd-resolved)
-- Checks GitHub authentication status and offers login
 
 ### [2/5] Pacstall Package Manager
 Installs Pacstall, a community-driven package manager for Debian.
@@ -199,15 +201,6 @@ The script includes an upgrade mode to update already-installed components:
 
 Place a `config.kdl` file next to the install script to have it automatically copied to `~/.config/niri/config.kdl` during installation.
 
-### GitHub Authentication
-
-The script checks if GitHub CLI is authenticated. This is useful for:
-- Cloning private repositories
-- Avoiding rate limits
-- Contributing to projects
-
-If not authenticated, you'll be prompted to run `gh auth login`.
-
 ## Starting Niri
 
 After installation completes, you can start Niri with:
@@ -239,19 +232,13 @@ Or add it as a session option in your display manager.
 - libcli11-dev
 
 ### Utilities
-- gh (GitHub CLI)
 - systemd-resolved
+- swayidle
 
 ## Troubleshooting
 
 ### Reboot Required
 If you experience DNS resolution issues after installation, reboot your system to properly initialize systemd-resolved.
-
-### GitHub Authentication
-If you skip GitHub authentication and later need it:
-```bash
-gh auth login
-```
 
 ### Build Failures
 If Quickshell build fails due to missing dependencies, ensure all Qt6 private development packages are installed:
