@@ -319,7 +319,7 @@ if [ "$INSTALL_DEPS" = true ] && [ "$RESUMING" = false ] && ask_skip "system dep
         qt6-wayland-dev qt6-wayland-private-dev \
         qt6-shadertools-dev spirv-tools pkg-config libcli11-dev \
         wayland-protocols libwayland-dev libdrm-dev libgbm-dev libegl1-mesa-dev \
-        libpolkit-agent-1-dev libjemalloc-dev libpam0g-dev gh swayidle
+        libpolkit-agent-1-dev libjemalloc-dev libpam0g-dev swayidle
 
     # Save installation state for post-reboot
     echo "INSTALL_DEPS=true" > "$STATE_FILE"
@@ -383,20 +383,6 @@ if [ "$RESUMING" = true ] && [ "$INSTALL_DEPS" = true ]; then
     else
         echo "Warning: Could not find libdisplay-info3 package, trying apt install..."
         sudo apt install -y libdisplay-info3 || echo "Failed to install libdisplay-info3"
-    fi
-    
-    # Check GitHub authentication
-    echo ""
-    if ! gh auth status &>/dev/null; then
-        read -p "GitHub CLI is not authenticated. Do you want to login now? (Y/n): " gh_response
-        gh_response=${gh_response:-Y}
-        if [[ "$gh_response" =~ ^[Yy]$ ]]; then
-            gh auth login
-        else
-            echo "Skipping GitHub authentication (you can run 'gh auth login' later)..."
-        fi
-    else
-        echo "✓ GitHub CLI is already authenticated."
     fi
     
     # Clear resuming state
