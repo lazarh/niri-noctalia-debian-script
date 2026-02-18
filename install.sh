@@ -299,7 +299,7 @@ if [ "$INSTALL_DEPS" = true ]; then
 fi
 if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6, and quickshell prerequisites)"; then
     sudo apt update
-    sudo apt install -y sudo gpg curl git cmake ninja-build build-essential \
+    sudo apt install -y --no-install-recommends sudo gpg curl git cmake ninja-build build-essential \
         qt6-base-dev qt6-base-private-dev qt6-declarative-dev qt6-declarative-private-dev \
         qt6-wayland-dev qt6-wayland-private-dev \
         qt6-shadertools-dev spirv-tools pkg-config libcli11-dev \
@@ -317,7 +317,7 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6
         echo "Installed: $LIBDISPLAY_URL"
     else
         echo "Warning: Could not find libdisplay-info3 package, trying apt install..."
-        sudo apt install -y libdisplay-info3 || echo "Failed to install libdisplay-info3"
+        sudo apt install -y --no-install-recommends libdisplay-info3 || echo "Failed to install libdisplay-info3"
     fi
 fi
 
@@ -329,7 +329,7 @@ fi
 if [ "$INSTALL_PACSTALL" = true ] && ask_skip "Pacstall package manager"; then
     bash -c "$(curl -fsSL https://pacstall.dev/q/ppr)"
     sudo apt update
-    sudo apt install -y pacstall
+    sudo apt install -y --no-install-recommends pacstall
 fi
 
 # Install niri using Pacstall
@@ -417,7 +417,7 @@ if [ "$INSTALL_VSCODE" = true ]; then
     echo "================================================"
     echo "Installing Visual Studio Code"
     echo "================================================"
-    sudo apt install -y wget gpg apt-transport-https
+    sudo apt install -y --no-install-recommends wget gpg apt-transport-https
     
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     if [ ! -f "$SCRIPT_DIR/packages.microsoft.gpg" ]; then
@@ -427,7 +427,7 @@ if [ "$INSTALL_VSCODE" = true ]; then
     sudo install -D -o root -g root -m 644 "$SCRIPT_DIR/packages.microsoft.gpg" /etc/apt/keyrings/packages.microsoft.gpg
     echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list > /dev/null
     sudo apt update
-    sudo apt install -y code
+    sudo apt install -y --no-install-recommends code
     
     # Copy desktop file and add Wayland flag
     mkdir -p ~/.local/share/applications
@@ -455,7 +455,7 @@ if [ "$INSTALL_OMZ" = true ]; then
     echo "================================================"
     echo "Installing Oh My Zsh"
     echo "================================================"
-    sudo apt install -y zsh
+    sudo apt install -y --no-install-recommends zsh
     
     # Change default shell
     read -p "Do you want to set zsh as your default shell? (Y/n): " zsh_response
@@ -481,7 +481,7 @@ if [ "$INSTALL_DOCS" = true ]; then
     echo "================================================"
     echo "Installing Document Viewers"
     echo "================================================"
-    sudo apt install -y zathura zathura-pdf-poppler loupe
+    sudo apt install -y --no-install-recommends zathura zathura-pdf-poppler loupe
     echo "Installed: zathura, zathura-pdf-poppler, loupe"
 fi
 
@@ -491,7 +491,7 @@ if [ "$INSTALL_OFFICE" = true ]; then
     echo "================================================"
     echo "Installing Office Tools"
     echo "================================================"
-    sudo apt install -y abiword gnumeric patat
+    sudo apt install -y --no-install-recommends abiword gnumeric patat
     echo "Installed: abiword, gnumeric, patat"
 fi
 
@@ -503,7 +503,7 @@ if [ "$APPLY_FIXES" = true ]; then
     echo "================================================"
     
     # Install packages
-    sudo apt install -y network-manager bluez brightnessctl upower \
+    sudo apt install -y --no-install-recommends network-manager bluez brightnessctl upower \
         pipewire-audio-client-libraries libpam0g-dev \
         firmware-linux firmware-iwlwifi firmware-realtek \
         wlsunset nwg-look
