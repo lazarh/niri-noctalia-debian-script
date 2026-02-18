@@ -1,128 +1,701 @@
-#!/usr/bin/env bash
-# install-testing.sh
-# 2026 edition — for Debian testing (Trixie)
+#!/bin/bash
 
-set -euo pipefail
+set -e  # Exit on error
 
-echo "Updating system and installing build dependencies..."
+# Configuration flags
+ASK_STEP=false
+SHOW_MENU=false
+INSTALL_VSCODE=false
+INSTALL_OMZ=false
+INSTALL_DOCS=false
+INSTALL_OFFICE=false
+APPLY_FIXES=false
+REMOVE_GNOME=false
+UPGRADE_MODE=""
+INSTALL_WALLPAPER=false
 
-sudo apt update
-sudo apt upgrade -y
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --ask-step)
+            ASK_STEP=true
+            shift
+            ;;
+        --menu)
+            SHOW_MENU=true
+            shift
+            ;;
+        --install-vscode)
+            INSTALL_VSCODE=true
+            shift
+            ;;
+        --install-omz)
+            INSTALL_OMZ=true
+            shift
+            ;;
+        --install-docs)
+            INSTALL_DOCS=true
+            shift
+            ;;
+        --install-office)
+            INSTALL_OFFICE=true
+            shift
+            ;;
+        --apply-fixes)
+            APPLY_FIXES=true
+            shift
+            ;;
+        --remove-gnome)
+            REMOVE_GNOME=true
+            shift
+            ;;
+        --upgrade)
+            if [[ -n "$2" && ! "$2" =~ ^-- ]]; then
+                UPGRADE_MODE="$2"
+                shift 2
+            else
+                echo "Error: --upgrade requires an argument (niri, quickshell, noctalia, or all)"
+                exit 1
+            fi
+            ;;
+        --install-wallpaper)
+            INSTALL_WALLPAPER=true
+            shift
+            ;;
+        --help)
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --ask-step        Interactive mode - prompt before each core installation step"
+            echo "  --menu            Show interactive menu to select components"
+            echo "  --upgrade <type>  Upgrade components: niri, quickshell, noctalia, or all"
+            echo "  --install-vscode  Install Visual Studio Code with Wayland support"
+            echo "  --install-omz     Install Oh My Zsh"
+            echo "  --install-docs    Install zathura and loupe (document viewers)"
+            echo "  --install-office  Install patat, gnumeric, and abiword"
+            echo "  --apply-fixes     Apply network & hardware fixes (NetworkManager, firmware, etc.)"
+            echo "  --remove-gnome    Remove GDM3 and GNOME packages (WARNING: removes desktop environment)"
+            echo "  --install-wallpaper Install random wallpaper changer (systemd timer)"
+            echo "  --help            Show this help message"
+            echo ""
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
 
-# Core build tools + Wayland/Mesa/graphics dependencies + Qt6 for Quickshell
-sudo apt install -y \
-    git curl wget build-essential pkg-config ninja-build cmake \
-    cargo rustc rust-all \
-    libwayland-dev wayland-protocols \
-    libegl1-mesa-dev libgles2-mesa-dev libgbm-dev libvulkan-dev vulkan-validationlayers \
-    libdrm-dev libinput-dev libxkbcommon-dev libudev-dev seatd libpam0g-dev \
-    libgtk-3-dev libsystemd-dev \
-    qt6-base-dev qt6-declarative-dev qt6-shadertools-dev qt6-wayland-private-dev \
-    qt6-svg-dev qt6-svg-plugins libqt6qmlmodels6-extra \
-    libpam0g-dev libjemalloc-dev spirv-tools \
-    fonts-roboto fonts-font-awesome \
-    polkitd  # usually already installed, but just in case
-
-echo "Installing/updating rustup (recommended for latest stable toolchain)..."
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-source "$HOME/.cargo/env"
-
-rustup update stable
-rustup default stable
-
-# ────────────────────────────────────────────────
-echo "Building & installing Niri (from git main)"
-# ────────────────────────────────────────────────
-
-cd /tmp
-rm -rf niri
-git clone https://github.com/YaLTeR/niri.git
-cd niri
-
-cargo build --release
-
-sudo install -Dm755 target/release/niri /usr/local/bin/niri
-sudo install -Dm644 resources/niri-session /usr/local/bin/niri-session   # optional helper
-sudo install -Dm644 resources/niri-portals.conf /usr/share/xdg-desktop-portal/portals/niri-portals.conf  # optional
-
-echo "Niri binary installed → /usr/local/bin/niri"
-
-# ────────────────────────────────────────────────
-echo "Building & installing Quickshell"
-# ────────────────────────────────────────────────
-
-cd /tmp
-rm -rf quickshell
-git clone https://git.outfoxxed.me/quickshell/quickshell.git
-cd quickshell
-
-cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
-cmake --build build --parallel $(nproc)
-sudo cmake --install build
-
-echo "Quickshell installed → /usr/local/bin/quickshell"
-
-# ────────────────────────────────────────────────
-echo "Installing Noctalia shell (config/theme for Quickshell)"
-# ────────────────────────────────────────────────
-
-mkdir -p ~/.config/quickshell
-cd ~/.config/quickshell
-
-rm -rf noctalia-shell
-git clone https://github.com/noctalia-dev/noctalia-shell.git
-
-# Most people symlink or rename to make it the default config
-ln -sf noctalia-shell/config.qml config.qml   # or just use -c noctalia-shell later
-
-echo "Noctalia cloned → ~/.config/quickshell/noctalia-shell"
-
-# Optional: minimal niri config tweak to work nicely with Noctalia
-mkdir -p ~/.config/niri
-cat > ~/.config/niri/config.kdl << 'EOF'
-// Minimal starting config — you can expand it later
-input {
-    keyboard {
-        xkb {
-            layout "us"
-        }
-    }
+# Interactive menu function
+show_interactive_menu() {
+    clear
+    echo "================================================"
+    echo "  Niri Installation - Component Selection Menu"
+    echo "================================================"
+    echo ""
+    echo "Core Components:"
+    echo "  [1] System dependencies (build tools, Qt6, Rust)"
+    echo "  [2] Niri compositor (build from source)"
+    echo "  [3] Quickshell"
+    echo "  [4] Noctalia-shell"
+    echo ""
+    echo "Upgrade Options:"
+    echo "  [U1] Upgrade Niri"
+    echo "  [U2] Upgrade Quickshell"
+    echo "  [U3] Upgrade Noctalia-shell"
+    echo "  [UA] Upgrade all (Niri + Quickshell + Noctalia)"
+    echo ""
+    echo "Optional Components:"
+    echo "  [5] Visual Studio Code (with Wayland support)"
+    echo "  [6] Oh My Zsh"
+    echo "  [7] Document viewers (zathura, loupe)"
+    echo "  [8] Office tools (patat, gnumeric, abiword)"
+    echo "  [9] Network & hardware fixes"
+    echo "  [10] Remove GNOME/GDM3 (WARNING: removes desktop)"
+    echo "  [11] Random wallpaper changer (systemd timer)"
+    echo ""
+    echo "  [A] Install all core components (1-4)"
+    echo "  [Q] Quit"
+    echo ""
+    read -p "Select components (space-separated numbers, e.g., '1 2 3 5'): " selections
+    
+    # Parse selections
+    for selection in $selections; do
+        case $selection in
+            1) INSTALL_DEPS=true ;;
+            2) INSTALL_NIRI=true ;;
+            3) INSTALL_QUICKSHELL=true ;;
+            4) INSTALL_NOCTALIA=true ;;
+            5) INSTALL_VSCODE=true ;;
+            6) INSTALL_OMZ=true ;;
+            7) INSTALL_DOCS=true ;;
+            8) INSTALL_OFFICE=true ;;
+            9) APPLY_FIXES=true ;;
+            10) REMOVE_GNOME=true ;;
+            [Uu]1) UPGRADE_MODE="niri" ;;
+            [Uu]2) UPGRADE_MODE="quickshell" ;;
+            [Uu]3) UPGRADE_MODE="noctalia" ;;
+            [Uu][Aa]) UPGRADE_MODE="all" ;;
+            11) INSTALL_WALLPAPER=true ;;
+            [Aa]) 
+                INSTALL_DEPS=true
+                INSTALL_NIRI=true
+                INSTALL_QUICKSHELL=true
+                INSTALL_NOCTALIA=true
+                ;;
+            [Qq]) 
+                echo "Installation cancelled."
+                exit 0
+                ;;
+            *)
+                echo "Invalid selection: $selection"
+                ;;
+        esac
+    done
 }
 
-window-rule {
-    geometry-corner-radius 12
-    clip-to-geometry true
+# Initialize installation flags for core components
+INSTALL_DEPS=false
+INSTALL_NIRI=false
+INSTALL_QUICKSHELL=false
+INSTALL_NOCTALIA=false
+
+# Show menu if requested, otherwise enable all core components by default
+if [ "$SHOW_MENU" = true ]; then
+    show_interactive_menu
+else
+    # Default: install all core components unless using --ask-step or --upgrade
+    if [ -z "$UPGRADE_MODE" ]; then
+        INSTALL_DEPS=true
+        INSTALL_NIRI=true
+        INSTALL_QUICKSHELL=true
+        INSTALL_NOCTALIA=true
+    fi
+fi
+
+# Function to ask user if they want to skip a step
+ask_skip() {
+    local step_name="$1"
+    if [ "$ASK_STEP" = false ]; then
+        return 0  # Don't skip, proceed with installation
+    fi
+    read -p "Do you want to install $step_name? (Y/n): " response
+    response=${response:-Y}  # Default to Y if empty
+    if [[ ! "$response" =~ ^[Yy]$ ]]; then
+        echo "Skipping $step_name..."
+        return 1
+    fi
+    return 0
 }
 
-spawn-at-startup "quickshell" "-c" "~/.config/quickshell/noctalia-shell"
-EOF
+# Handle upgrade mode
+if [ -n "$UPGRADE_MODE" ]; then
+    echo "================================================"
+    echo "Niri + Quickshell + Noctalia Upgrade Script"
+    echo "================================================"
+    echo "Upgrade mode: $UPGRADE_MODE"
+    echo ""
+    
+    case "$UPGRADE_MODE" in
+        niri)
+            echo "Upgrading Niri (building from source)..."
+            TEMP_DIR=$(mktemp -d)
+            cd "$TEMP_DIR"
+            git clone https://github.com/YaLTeR/niri.git
+            cd niri
+            cargo build --release
+            sudo install -Dm755 target/release/niri /usr/local/bin/niri
+            sudo install -Dm644 resources/niri-session /usr/local/bin/niri-session
+            sudo install -Dm644 resources/niri-portals.conf /usr/share/xdg-desktop-portal/portals/niri-portals.conf
+            cd ~
+            rm -rf "$TEMP_DIR"
+            echo "Niri upgrade complete!"
+            ;;
+        quickshell)
+            echo "Upgrading Quickshell..."
+            TEMP_DIR=$(mktemp -d)
+            cd "$TEMP_DIR"
+            git clone --depth=1 https://git.outfoxxed.me/quickshell/quickshell
+            cd quickshell
+            cmake -B build -G Ninja -DCRASH_REPORTER=OFF
+            cmake --build build
+            sudo cmake --install build
+            quickshell --version
+            cd ~
+            rm -rf "$TEMP_DIR"
+            echo "Quickshell upgrade complete!"
+            ;;
+        noctalia)
+            echo "Upgrading Noctalia-shell..."
+            if [ -d ~/.config/quickshell/noctalia-shell ]; then
+                cd ~/.config/quickshell/noctalia-shell
+                git pull
+                echo "Noctalia-shell upgrade complete!"
+            else
+                echo "Error: Noctalia-shell not found at ~/.config/quickshell/noctalia-shell"
+                echo "Please install it first using the installation script."
+                exit 1
+            fi
+            ;;
+        all)
+            echo "Upgrading all components (Niri + Quickshell + Noctalia)..."
+            echo ""
+            
+            echo "[1/3] Upgrading Niri (building from source)..."
+            TEMP_DIR=$(mktemp -d)
+            cd "$TEMP_DIR"
+            git clone https://github.com/YaLTeR/niri.git
+            cd niri
+            cargo build --release
+            sudo install -Dm755 target/release/niri /usr/local/bin/niri
+            sudo install -Dm644 resources/niri-session /usr/local/bin/niri-session
+            sudo install -Dm644 resources/niri-portals.conf /usr/share/xdg-desktop-portal/portals/niri-portals.conf
+            cd ~
+            rm -rf "$TEMP_DIR"
+            echo "Niri upgrade complete!"
+            echo ""
+            
+            echo "[2/3] Upgrading Quickshell..."
+            TEMP_DIR=$(mktemp -d)
+            cd "$TEMP_DIR"
+            git clone --depth=1 https://git.outfoxxed.me/quickshell/quickshell
+            cd quickshell
+            cmake -B build -G Ninja -DCRASH_REPORTER=OFF
+            cmake --build build
+            sudo cmake --install build
+            quickshell --version
+            cd ~
+            rm -rf "$TEMP_DIR"
+            echo "Quickshell upgrade complete!"
+            echo ""
+            
+            echo "[3/3] Upgrading Noctalia-shell..."
+            if [ -d ~/.config/quickshell/noctalia-shell ]; then
+                cd ~/.config/quickshell/noctalia-shell
+                git pull
+                echo "Noctalia-shell upgrade complete!"
+            else
+                echo "Warning: Noctalia-shell not found at ~/.config/quickshell/noctalia-shell"
+                echo "Skipping noctalia-shell upgrade."
+            fi
+            echo ""
+            
+            echo "All components upgraded successfully!"
+            ;;
+        *)
+            echo "Error: Invalid upgrade type '$UPGRADE_MODE'"
+            echo "Valid options: niri, quickshell, noctalia, all"
+            exit 1
+            ;;
+    esac
+    
+    echo ""
+    echo "================================================"
+    echo "Upgrade complete!"
+    echo "================================================"
+    exit 0
+fi
 
-echo "Basic niri config created with Noctalia autostart"
+echo "================================================"
+echo "Niri + Quickshell + Noctalia Installation Script"
+echo "================================================"
+if [ "$ASK_STEP" = true ]; then
+    echo "Running in interactive mode (--ask-step)"
+fi
 
-# ────────────────────────────────────────────────
-echo "Done! Now try running niri"
-# ────────────────────────────────────────────────
+# Create temporary directory for builds
+TEMP_DIR=$(mktemp -d)
 
-cat << 'EOF'
+# Update package list and install dependencies
+if [ "$INSTALL_DEPS" = true ]; then
+    echo ""
+    echo "[1/4] System dependencies"
+fi
+if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6, Rust, and prerequisites)"; then
+    echo "Updating package lists..."
+    sudo apt update
+    
+    echo "Installing system dependencies..."
+    sudo apt install -y sudo gpg curl git cmake ninja-build build-essential \
+        qt6-base-dev qt6-base-private-dev qt6-declarative-dev qt6-declarative-private-dev \
+        qt6-wayland-dev qt6-wayland-private-dev \
+        qt6-shadertools-dev spirv-tools pkg-config libcli11-dev \
+        wayland-protocols libwayland-dev libdrm-dev libgbm-dev libegl1-mesa-dev \
+        libpolkit-agent-1-dev libjemalloc-dev libpam0g-dev swayidle
 
-Next steps:
+    # Download and install libdisplay-info3 (latest version)
+    echo "Downloading and installing libdisplay-info3..."
+    LIBDISPLAY_URL=$(wget -qO- http://ftp.debian.org/debian/pool/main/libd/libdisplay-info/ | grep -oP 'libdisplay-info3_[^"]+_amd64\.deb' | sort -V | tail -1)
+    if [ -n "$LIBDISPLAY_URL" ]; then
+        TEMP_DEB=$(mktemp)
+        wget -O "$TEMP_DEB" "http://ftp.debian.org/debian/pool/main/libd/libdisplay-info/$LIBDISPLAY_URL"
+        sudo dpkg -i "$TEMP_DEB"
+        rm "$TEMP_DEB"
+        echo "libdisplay-info3 installed successfully"
+    else
+        echo "Warning: Could not find libdisplay-info3 package, trying apt install..."
+        sudo apt install -y libdisplay-info3 || echo "Failed to install libdisplay-info3"
+    fi
+    
+    # Install Rust toolchain
+    echo "Installing Rust toolchain..."
+    if ! command -v rustc &> /dev/null; then
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+        source "$HOME/.cargo/env"
+        echo "Rust toolchain installed successfully"
+    else
+        echo "Rust already installed, updating..."
+        rustup update stable
+        rustup default stable
+    fi
+    
+    echo "System dependencies installed successfully!"
+fi
 
-1. From a TTY (Ctrl+Alt+F3), login and run:
-   niri
+# Install Niri (build from source)
+if [ "$INSTALL_NIRI" = true ]; then
+    echo ""
+    echo "[2/4] Niri compositor"
+fi
+if [ "$INSTALL_NIRI" = true ] && ask_skip "Niri compositor (build from source)"; then
+    echo "Building and installing Niri from source..."
+    
+    # Ensure Rust is in PATH
+    if [ -f "$HOME/.cargo/env" ]; then
+        source "$HOME/.cargo/env"
+    fi
+    
+    cd "$TEMP_DIR"
+    git clone https://github.com/YaLTeR/niri.git
+    cd niri
+    
+    echo "Building Niri (this may take several minutes)..."
+    cargo build --release
+    
+    echo "Installing Niri..."
+    sudo install -Dm755 target/release/niri /usr/local/bin/niri
+    sudo install -Dm644 resources/niri-session /usr/local/bin/niri-session
+    sudo install -Dm644 resources/niri-portals.conf /usr/share/xdg-desktop-portal/portals/niri-portals.conf
+    
+    # Verify installation
+    if command -v niri &> /dev/null; then
+        echo "Niri installed successfully → /usr/local/bin/niri"
+        niri --version
+    else
+        echo "Error: Niri installation failed"
+        exit 1
+    fi
+fi
 
-2. Default keys (Super = Mod4/Win key):
-   Super ← / →        focus left/right
-   Super T            open terminal (you need to install one)
-   Super Q            close window
-   Super Shift Q      exit niri
+# Install Quickshell
+if [ "$INSTALL_QUICKSHELL" = true ]; then
+    echo ""
+    echo "[3/4] Quickshell"
+fi
+if [ "$INSTALL_QUICKSHELL" = true ] && ask_skip "Quickshell"; then
+    echo "Building and installing Quickshell from source..."
+    
+    cd "$TEMP_DIR"
+    git clone --depth=1 https://git.outfoxxed.me/quickshell/quickshell
+    cd quickshell
+    
+    cmake -B build -G Ninja -DCRASH_REPORTER=OFF
+    cmake --build build
+    sudo cmake --install build
+    
+    # Verify installation
+    if command -v quickshell &> /dev/null; then
+        echo "Quickshell installed successfully!"
+        quickshell --version
+    else
+        echo "Error: Quickshell installation failed"
+        exit 1
+    fi
+fi
 
-3. Recommended extra packages:
-   sudo apt install alacritty fuzzel waybar xdg-desktop-portal-gtk xwayland
+# Install Noctalia shell configuration
+if [ "$INSTALL_NOCTALIA" = true ]; then
+    echo ""
+    echo "[4/4] Noctalia shell configuration"
+fi
+if [ "$INSTALL_NOCTALIA" = true ] && ask_skip "Noctalia shell configuration"; then
+    echo "Installing Noctalia shell configuration..."
+    mkdir -p ~/.config/quickshell
+    cd ~/.config/quickshell
+    
+    if [ -d "noctalia-shell" ]; then
+        echo "Noctalia-shell directory already exists. Updating..."
+        cd noctalia-shell
+        git pull
+    else
+        git clone https://github.com/noctalia-dev/noctalia-shell.git
+    fi
+    
+    echo "Noctalia shell configuration installed successfully!"
+    echo "Location: ~/.config/quickshell/noctalia-shell"
+fi
 
-4. To autostart quickshell differently, edit ~/.config/niri/config.kdl
+# Cleanup
+if [ -n "$TEMP_DIR" ] && [ -d "$TEMP_DIR" ]; then
+    rm -rf "$TEMP_DIR"
+fi
 
-5. For nicer login → create ~/.config/systemd/user/niri.service
+# Apply niri configuration (only if niri was installed)
+if [ "$INSTALL_NIRI" = true ]; then
+    echo ""
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if [ -f "$SCRIPT_DIR/config.kdl" ]; then
+        read -p "Do you want to apply the niri configuration (config.kdl)? (Y/n): " config_response
+        config_response=${config_response:-Y}
+        if [[ "$config_response" =~ ^[Yy]$ ]]; then
+            mkdir -p ~/.config/niri
+            cp "$SCRIPT_DIR/config.kdl" ~/.config/niri/config.kdl
+            echo "Niri configuration applied to ~/.config/niri/config.kdl"
+        else
+            echo "Skipping niri configuration..."
+        fi
+    fi
+fi
 
-Enjoy your new scrollable-tiling setup ฅ^•ﻌ•^ฅ
+# Optional: Remove GNOME/GDM3
+if [ "$REMOVE_GNOME" = true ]; then
+    echo ""
+    echo "================================================"
+    echo "WARNING: Remove GNOME and GDM3"
+    echo "================================================"
+    echo "This will remove your desktop environment."
+    echo "After removal, the system will boot to console mode."
+    echo ""
+    read -p "Type 'yes' to confirm removal: " confirm
+    
+    if [ "$confirm" = "yes" ]; then
+        echo "Stopping GDM3..."
+        sudo systemctl stop gdm3 || true
+        
+        echo "Removing GNOME packages..."
+        sudo apt purge -y gnome-core gnome-shell gdm3 gnome-session gnome-terminal \
+            gnome-control-center gnome-software nautilus || true
+        
+        echo "Cleaning up..."
+        sudo apt autoremove -y
+        
+        echo "Setting system to boot to multi-user target..."
+        sudo systemctl set-default multi-user.target
+        
+        echo "GNOME and GDM3 removed successfully!"
+        echo "System will boot to console. Use 'niri' to start the compositor."
+    else
+        echo "GNOME removal cancelled."
+    fi
+fi
 
-EOF
+# Optional: Install Visual Studio Code
+if [ "$INSTALL_VSCODE" = true ]; then
+    echo ""
+    echo "================================================"
+    echo "Installing Visual Studio Code"
+    echo "================================================"
+    
+    sudo apt install -y wget gpg apt-transport-https
+    
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > "$SCRIPT_DIR/packages.microsoft.gpg"
+    sudo install -D -o root -g root -m 644 "$SCRIPT_DIR/packages.microsoft.gpg" /etc/apt/keyrings/packages.microsoft.gpg
+    echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list > /dev/null
+    rm -f "$SCRIPT_DIR/packages.microsoft.gpg"
+    
+    sudo apt update
+    sudo apt install -y code
+    
+    # Copy desktop file and add Wayland flag
+    mkdir -p ~/.local/share/applications
+    cp /usr/share/applications/code.desktop ~/.local/share/applications/
+    sed -i 's/^Exec=\/usr\/share\/code\/code/Exec=\/usr\/share\/code\/code --enable-features=UseOzonePlatform --ozone-platform=wayland/' ~/.local/share/applications/code.desktop
+    
+    # Add shell alias
+    if [ -f ~/.bashrc ]; then
+        if ! grep -q "alias code=" ~/.bashrc; then
+            echo "alias code='code --enable-features=UseOzonePlatform --ozone-platform=wayland'" >> ~/.bashrc
+        fi
+    fi
+    if [ -f ~/.zshrc ]; then
+        if ! grep -q "alias code=" ~/.zshrc; then
+            echo "alias code='code --enable-features=UseOzonePlatform --ozone-platform=wayland'" >> ~/.zshrc
+        fi
+    fi
+    
+    echo "Visual Studio Code installed with Wayland support!"
+fi
+
+# Optional: Install Oh My Zsh
+if [ "$INSTALL_OMZ" = true ]; then
+    echo ""
+    echo "================================================"
+    echo "Installing Oh My Zsh"
+    echo "================================================"
+    
+    sudo apt install -y zsh
+    
+    # Change default shell
+    read -p "Do you want to change your default shell to zsh? (Y/n): " zsh_response
+    zsh_response=${zsh_response:-Y}
+    if [[ "$zsh_response" =~ ^[Yy]$ ]]; then
+        chsh -s $(which zsh)
+        echo "Default shell changed to zsh (will take effect on next login)"
+    fi
+    
+    # Install Oh My Zsh
+    if [ ! -d "$HOME/.oh-my-zsh" ]; then
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+        echo "Oh My Zsh installed successfully!"
+    else
+        echo "Oh My Zsh is already installed"
+    fi
+fi
+
+# Optional: Install document viewers
+if [ "$INSTALL_DOCS" = true ]; then
+    echo ""
+    echo "================================================"
+    echo "Installing document viewers"
+    echo "================================================"
+    
+    sudo apt install -y zathura zathura-pdf-poppler loupe
+    echo "Installed: zathura, zathura-pdf-poppler, loupe"
+fi
+
+# Optional: Install office tools
+if [ "$INSTALL_OFFICE" = true ]; then
+    echo ""
+    echo "================================================"
+    echo "Installing office tools"
+    echo "================================================"
+    
+    sudo apt install -y abiword gnumeric patat
+    echo "Installed: abiword, gnumeric, patat"
+fi
+
+# Optional: Apply network & hardware fixes
+if [ "$APPLY_FIXES" = true ]; then
+    echo ""
+    echo "================================================"
+    echo "Applying network & hardware fixes"
+    echo "================================================"
+    
+    echo "Installing NetworkManager, bluez, brightnessctl, firmware packages..."
+    sudo apt install -y network-manager bluez brightnessctl upower \
+        pipewire-audio-client-libraries libpam0g-dev \
+        firmware-linux firmware-iwlwifi firmware-realtek \
+        wlsunset nwg-look
+    
+    # Add user to groups
+    sudo usermod -aG netdev,bluetooth,video "$USER"
+    echo "Added $USER to groups: netdev, bluetooth, video"
+    
+    # Update NetworkManager configuration
+    echo "Configuring NetworkManager..."
+    sudo mkdir -p /etc/NetworkManager/conf.d/
+    echo -e "[main]\nplugins=ifupdown,keyfile\n\n[ifupdown]\nmanaged=true" | sudo tee /etc/NetworkManager/conf.d/10-globally-managed-devices.conf > /dev/null
+    
+    # Comment out wlan0 in /etc/network/interfaces
+    if [ -f /etc/network/interfaces ]; then
+        sudo cp /etc/network/interfaces /etc/network/interfaces.backup
+        sudo sed -i '/wlan0/s/^/# /' /etc/network/interfaces
+        echo "Backed up and updated /etc/network/interfaces"
+    fi
+    
+    sudo systemctl restart NetworkManager
+    echo "NetworkManager configured and restarted"
+    echo ""
+    echo "Network & hardware fixes applied successfully!"
+    echo "Note: You may need to log out and back in for group changes to take effect"
+fi
+
+# Optional: Install random wallpaper changer
+if [ "$INSTALL_WALLPAPER" = true ]; then
+    echo ""
+    echo "================================================"
+    echo "Installing random wallpaper changer"
+    echo "================================================"
+    
+    # Create wallpaper script
+    mkdir -p ~/.local/bin
+    cat > ~/.local/bin/noctalia-random-wallpaper.sh << 'WALLPAPER_EOF'
+#!/bin/bash
+# Random wallpaper changer for Noctalia
+WALLPAPER_DIR="$HOME/Pictures/Wallpapers"
+if [ ! -d "$WALLPAPER_DIR" ]; then
+    echo "Wallpaper directory not found: $WALLPAPER_DIR"
+    exit 1
+fi
+
+RANDOM_WALLPAPER=$(find "$WALLPAPER_DIR" -type f \( -iname "*.jpg" -o -iname "*.png" -o -iname "*.jpeg" \) | shuf -n 1)
+
+if [ -n "$RANDOM_WALLPAPER" ]; then
+    quickshell -i noctalia-shell msg -c "Wallpaper.load('file://$RANDOM_WALLPAPER')"
+    echo "Wallpaper changed to: $RANDOM_WALLPAPER"
+else
+    echo "No wallpapers found in $WALLPAPER_DIR"
+fi
+WALLPAPER_EOF
+    
+    chmod +x ~/.local/bin/noctalia-random-wallpaper.sh
+    
+    # Create systemd service
+    mkdir -p ~/.config/systemd/user
+    cat > ~/.config/systemd/user/noctalia-wallpaper.service << 'SERVICE_EOF'
+[Unit]
+Description=Noctalia Random Wallpaper Changer
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/noctalia-random-wallpaper.sh
+
+[Install]
+WantedBy=default.target
+SERVICE_EOF
+    
+    # Create systemd timer
+    cat > ~/.config/systemd/user/noctalia-wallpaper.timer << 'TIMER_EOF'
+[Unit]
+Description=Change Noctalia wallpaper every 30 minutes
+Requires=noctalia-wallpaper.service
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=30min
+
+[Install]
+WantedBy=timers.target
+TIMER_EOF
+    
+    # Enable and start timer
+    systemctl --user daemon-reload
+    systemctl --user enable noctalia-wallpaper.timer
+    systemctl --user start noctalia-wallpaper.timer
+    
+    echo "Random wallpaper changer installed!"
+    echo "Script location: ~/.local/bin/noctalia-random-wallpaper.sh"
+    echo "Timer enabled: wallpaper will change every 30 minutes"
+    echo ""
+    echo "Note: Make sure to create ~/Pictures/Wallpapers directory and add wallpaper images"
+fi
+
+echo ""
+echo "================================================"
+echo "Installation Complete!"
+echo "================================================"
+echo ""
+echo "Next steps:"
+echo "1. Log out and log back in (or reboot)"
+echo "2. From a TTY (Ctrl+Alt+F3), run: niri"
+echo "3. Noctalia shell should start automatically"
+echo ""
+echo "Recommended additional packages:"
+echo "  sudo apt install alacritty fuzzel waybar xdg-desktop-portal-gtk xwayland"
+echo ""
+echo "Enjoy your Niri + Noctalia setup!"
+echo ""
