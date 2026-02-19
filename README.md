@@ -14,6 +14,10 @@ This script provides a complete installation workflow for:
 - **Debian 13 (Trixie)** or **Debian Forky** (minimal installation recommended)
 - Root/sudo access
 - Internet connection
+- **At least 16GB of free space in /tmp** (required for Quickshell build)
+  - The Quickshell compilation process requires significant temporary space
+  - If /tmp has less than 16GB, the build will likely fail with out-of-space errors
+  - You can check available space with: `df -h /tmp`
 - **Minimal Debian installation without graphical environment** (recommended)
   - This script is designed to run on a fresh, minimal Debian installation
   - It will install all necessary components to create a complete Wayland desktop environment
