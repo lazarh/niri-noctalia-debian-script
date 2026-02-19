@@ -43,9 +43,9 @@ Use the `--menu` flag to select which components to install:
 ```
 
 This shows an interactive menu where you can choose:
-- Core components (1-5): System dependencies, Pacstall, Niri, Quickshell, Noctalia
+- Core components (1-4): System dependencies, Niri, Quickshell, Noctalia
 - Upgrade options (U1-UA): Upgrade individual components or all at once
-- Optional components (6-12): VS Code, Oh My Zsh, document viewers, office tools, network fixes, GNOME removal, wallpaper changer
+- Optional components (5-11): VS Code, Oh My Zsh, document viewers, office tools, network fixes, GNOME removal, wallpaper changer
 
 ### Interactive Mode
 
@@ -103,35 +103,37 @@ For a full list of options, run:
 
 The script performs the following steps:
 
-### [1/5] System Dependencies
+### [1/4] System Dependencies
 Installs all required build tools and libraries:
-- Build essentials (cmake, ninja-build, gcc, etc.)
+- Build essentials (cmake, ninja-build, gcc, git, curl, etc.)
 - Qt6 development packages (base, declarative, wayland with private headers)
 - Wayland libraries (protocols, client, scanner)
 - Graphics libraries (libdrm, libgbm, EGL)
-- Additional dependencies (PAM, polkit, jemalloc, CLI11)
+- Additional dependencies (PAM, polkit, jemalloc, CLI11, libseat, libspa, libdisplay-info3)
+- Wayland desktop tools (alacritty, fuzzel, waybar, xdg-desktop-portal-gtk, xwayland)
+- **Rust toolchain** (installed via rustup if not already present)
 
 
 
-### [2/5] Pacstall Package Manager
-Installs Pacstall, a community-driven package manager for Debian.
+### [2/4] Niri Compositor
+Builds and installs the Niri Wayland compositor from source:
+- Clones from the official repository
+- Builds with Cargo in release mode
+- Installs binary and session files
 
-### [3/5] Niri Compositor
-Installs the Niri Wayland compositor via Pacstall.
-
-### [4/5] Quickshell
+### [3/4] Quickshell
 Builds and installs Quickshell from source:
 - Clones from official repository
 - Builds with CMake/Ninja
 - Crash handler disabled (no google-breakpad dependency)
 - Verifies installation
 
-### [5/5] Noctalia Shell Configuration
+### [4/4] Noctalia Shell Configuration
 Clones the Noctalia shell configuration to `~/.config/quickshell/noctalia-shell`.
 
 ### Post-Installation
 
-If a `config.kdl` file exists in the same directory as the script, you'll be prompted to apply it as the Niri configuration.
+The Noctalia step automatically copies `config.kdl` (if present next to the script) to `~/.config/niri/config.kdl`. If Niri was installed and `config.kdl` exists, you'll also be prompted again to apply or skip it.
 
 ## Optional Components
 
@@ -188,7 +190,7 @@ The script includes an upgrade mode to update already-installed components:
 
 ```bash
 # Upgrade individual components
-./install.sh --upgrade niri           # Updates Niri via Pacstall
+./install.sh --upgrade niri           # Rebuilds Niri from latest source
 ./install.sh --upgrade quickshell     # Rebuilds Quickshell from latest source
 ./install.sh --upgrade noctalia       # Pulls latest Noctalia configuration
 
@@ -219,6 +221,7 @@ Or add it as a session option in your display manager.
 ### Build Tools
 - cmake, ninja-build, build-essential
 - pkg-config, spirv-tools
+- Rust toolchain (via rustup)
 
 ### Qt6 Packages
 - qt6-base-dev, qt6-base-private-dev
@@ -233,9 +236,13 @@ Or add it as a session option in your display manager.
 - libpam0g-dev
 - libjemalloc-dev
 - libcli11-dev
+- librust-libseat-sys-dev, librust-libspa-sys-dev
+- librust-pango-sys-dev, librust-libdisplay-info-sys-dev
+- libdisplay-info3 (downloaded from Debian repos)
 
-### Utilities
-- swayidle
+### Wayland Desktop Tools
+- alacritty, fuzzel, waybar
+- xdg-desktop-portal-gtk, xwayland
 
 ## Troubleshooting
 
@@ -265,5 +272,5 @@ This installation script is provided as-is. Individual components (Niri, Quicksh
 
 - **Niri**: [YaLTeR/niri](https://github.com/YaLTeR/niri)
 - **Quickshell**: [outfoxxed/quickshell](https://git.outfoxxed.me/quickshell/quickshell)
-- **Noctalia**: [outfoxxed/noctalia-shell](https://github.com/outfoxxed/noctalia-shell)
+- **Noctalia**: [noctalia-dev/noctalia-shell](https://github.com/noctalia-dev/noctalia-shell)
 
