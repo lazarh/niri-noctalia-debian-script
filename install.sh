@@ -2,6 +2,9 @@
 
 set -e  # Exit on error
 
+# Capture script directory at the beginning
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Configuration flags
 ASK_STEP=false
 SHOW_MENU=false
@@ -13,6 +16,7 @@ APPLY_FIXES=false
 REMOVE_GNOME=false
 UPGRADE_MODE=""
 INSTALL_WALLPAPER=false
+INSTALL_DESKTOP_ENTRY=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -62,6 +66,10 @@ while [[ $# -gt 0 ]]; do
             INSTALL_WALLPAPER=true
             shift
             ;;
+        --install-desktop-entry)
+            INSTALL_DESKTOP_ENTRY=true
+            shift
+            ;;
         --help)
             echo "Usage: $0 [OPTIONS]"
             echo ""
@@ -76,6 +84,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --apply-fixes     Apply network & hardware fixes (NetworkManager, firmware, etc.)"
             echo "  --remove-gnome    Remove GDM3 and GNOME packages (WARNING: removes desktop environment)"
             echo "  --install-wallpaper Install random wallpaper changer (systemd timer)"
+            echo "  --install-desktop-entry Install wayland-session desktop entry for display managers"
             echo "  --help            Show this help message"
             echo ""
             exit 0
@@ -115,6 +124,7 @@ show_interactive_menu() {
     echo "  [9] Network & hardware fixes"
     echo "  [10] Remove GNOME/GDM3 (WARNING: removes desktop)"
     echo "  [11] Random wallpaper changer (systemd timer)"
+    echo "  [12] Wayland session desktop entry (for display managers)"
     echo ""
     echo "  [A] Install all core components (1-4)"
     echo "  [Q] Quit"
@@ -139,6 +149,7 @@ show_interactive_menu() {
             [Uu]3) UPGRADE_MODE="noctalia" ;;
             [Uu][Aa]) UPGRADE_MODE="all" ;;
             11) INSTALL_WALLPAPER=true ;;
+            12) INSTALL_DESKTOP_ENTRY=true ;;
             [Aa])
                 INSTALL_DEPS=true
                 INSTALL_NIRI=true
@@ -452,7 +463,6 @@ fi
 # Apply niri configuration (only if niri was installed)
 if [ "$INSTALL_NIRI" = true ]; then
     echo ""
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     if [ -f "$SCRIPT_DIR/config.kdl" ]; then
         read -p "Do you want to apply the niri configuration (config.kdl)? (Y/n): " config_response
         config_response=${config_response:-Y}
@@ -507,7 +517,6 @@ if [ "$INSTALL_VSCODE" = true ]; then
 
     sudo apt install -y --no-install-recommends wget gpg apt-transport-https
 
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > "$SCRIPT_DIR/packages.microsoft.gpg"
     sudo install -D -o root -g root -m 644 "$SCRIPT_DIR/packages.microsoft.gpg" /etc/apt/keyrings/packages.microsoft.gpg
     echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list > /dev/null
@@ -689,6 +698,29 @@ TIMER_EOF
     echo "Timer enabled: wallpaper will change every 30 minutes"
     echo ""
     echo "Note: Make sure to create ~/Pictures/Wallpapers directory and add wallpaper images"
+fi
+
+# Optional: Install wayland-session desktop entry
+if [ "$INSTALL_DESKTOP_ENTRY" = true ]; then
+    echo ""
+    echo "================================================"
+    echo "Installing Wayland Session Desktop Entry"
+    echo "================================================"
+    
+    # Create the desktop entry file
+    sudo tee /usr/share/wayland-sessions/niri.desktop > /dev/null << 'DESKTOP_EOF'
+[Desktop Entry]
+Name=Niri
+Comment=A scrollable-tiling Wayland compositor
+Exec=niri
+Type=Application
+DesktopNames=niri
+DESKTOP_EOF
+    
+    echo "Wayland session desktop entry installed!"
+    echo "Location: /usr/share/wayland-sessions/niri.desktop"
+    echo ""
+    echo "You can now select Niri from your display manager (GDM, SDDM, LightDM, etc.)"
 fi
 
 echo ""

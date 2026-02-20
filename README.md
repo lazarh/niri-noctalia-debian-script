@@ -45,7 +45,7 @@ Use the `--menu` flag to select which components to install:
 This shows an interactive menu where you can choose:
 - Core components (1-4): System dependencies, Niri, Quickshell, Noctalia
 - Upgrade options (U1-UA): Upgrade individual components or all at once
-- Optional components (5-11): VS Code, Oh My Zsh, document viewers, office tools, network fixes, GNOME removal, wallpaper changer
+- Optional components (5-12): VS Code, Oh My Zsh, document viewers, office tools, network fixes, GNOME removal, wallpaper changer, wayland-session desktop entry
 
 ### Interactive Mode
 
@@ -85,6 +85,9 @@ Install specific optional components directly:
 
 # Install random wallpaper changer (systemd timer)
 ./install.sh --install-wallpaper
+
+# Install wayland-session desktop entry for display managers (NOT installed by default)
+./install.sh --install-desktop-entry
 
 # Remove GNOME/GDM3 (WARNING: removes desktop environment)
 ./install.sh --remove-gnome
@@ -176,6 +179,13 @@ The Noctalia step automatically copies `config.kdl` (if present next to the scri
 - Uses Noctalia IPC to change wallpaper
 - Timer starts on boot and runs continuously
 
+### Wayland Session Desktop Entry (`--install-desktop-entry`)
+- **NOT installed by default** - must be explicitly requested
+- Creates `/usr/share/wayland-sessions/niri.desktop`
+- Allows selecting Niri from display manager login screen (GDM, SDDM, LightDM, etc.)
+- Useful if you have an existing graphical environment and want to add Niri as a session option
+- Not needed for minimal installations that boot directly to console
+
 ### Remove GNOME/GDM3 (`--remove-gnome`)
 - **WARNING**: This removes your desktop environment
 - Stops GDM3 service
@@ -208,13 +218,24 @@ Place a `config.kdl` file next to the install script to have it automatically co
 
 ## Starting Niri
 
-After installation completes, you can start Niri with:
+After installation completes, you have two options:
 
+### Option 1: Start from Console (Default)
 ```bash
 niri
 ```
 
-Or add it as a session option in your display manager.
+### Option 2: Select from Display Manager
+If you have a display manager (GDM, SDDM, LightDM, etc.) and want to select Niri from the login screen:
+
+1. Install the wayland-session desktop entry:
+   ```bash
+   ./install.sh --install-desktop-entry
+   ```
+
+2. Log out and select "Niri" from the session menu at your login screen
+
+**Note**: The desktop entry is **not installed by default**. It's only needed if you're using a display manager and want Niri as a selectable session option.
 
 ## Dependencies Installed
 
