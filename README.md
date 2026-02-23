@@ -45,7 +45,7 @@ Use the `--menu` flag to select which components to install:
 This shows an interactive menu where you can choose:
 - Core components (1-4): System dependencies, Niri, Quickshell, Noctalia
 - Upgrade options (U1-UA): Upgrade individual components or all at once
-- Optional components (5-12): VS Code, Oh My Zsh, document viewers, office tools, network fixes, GNOME removal, wallpaper changer, wayland-session desktop entry
+- Optional components (5-13): VS Code, Oh My Zsh, document viewers, office tools, network fixes, GNOME removal, wallpaper changer, wayland-session desktop entry, Yazi file manager
 
 ### Interactive Mode
 
@@ -88,6 +88,9 @@ Install specific optional components directly:
 
 # Install wayland-session desktop entry for display managers (NOT installed by default)
 ./install.sh --install-desktop-entry
+
+# Install Yazi terminal file manager (builds from source)
+./install.sh --install-yazi
 
 # Remove GNOME/GDM3 (WARNING: removes desktop environment)
 ./install.sh --remove-gnome
@@ -185,6 +188,12 @@ The Noctalia step automatically copies `config.kdl` (if present next to the scri
 - Allows selecting Niri from display manager login screen (GDM, SDDM, LightDM, etc.)
 - Useful if you have an existing graphical environment and want to add Niri as a session option
 - Not needed for minimal installations that boot directly to console
+
+### Yazi Terminal File Manager (`--install-yazi`)
+- Installs apt prerequisites: `ffmpeg`, `7zip`, `jq`, `poppler-utils`, `fd-find`, `ripgrep`, `fzf`, `zoxide`, `imagemagick`
+- Clones [sxyazi/yazi](https://github.com/sxyazi/yazi) and builds from source with Cargo
+- Installs `yazi` and `ya` binaries to `/usr/local/bin/`
+- Requires Rust toolchain (install core components first, or have Rust already)
 
 ### Remove GNOME/GDM3 (`--remove-gnome`)
 - **WARNING**: This removes your desktop environment
@@ -294,4 +303,5 @@ This installation script is provided as-is. Individual components (Niri, Quicksh
 - **Niri**: [YaLTeR/niri](https://github.com/YaLTeR/niri)
 - **Quickshell**: [outfoxxed/quickshell](https://git.outfoxxed.me/quickshell/quickshell)
 - **Noctalia**: [noctalia-dev/noctalia-shell](https://github.com/noctalia-dev/noctalia-shell)
+- **Yazi**: [sxyazi/yazi](https://github.com/sxyazi/yazi)
 

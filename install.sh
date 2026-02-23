@@ -17,6 +17,7 @@ REMOVE_GNOME=false
 UPGRADE_MODE=""
 INSTALL_WALLPAPER=false
 INSTALL_DESKTOP_ENTRY=false
+INSTALL_YAZI=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -70,6 +71,10 @@ while [[ $# -gt 0 ]]; do
             INSTALL_DESKTOP_ENTRY=true
             shift
             ;;
+        --install-yazi)
+            INSTALL_YAZI=true
+            shift
+            ;;
         --help)
             echo "Usage: $0 [OPTIONS]"
             echo ""
@@ -85,6 +90,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --remove-gnome    Remove GDM3 and GNOME packages (WARNING: removes desktop environment)"
             echo "  --install-wallpaper Install random wallpaper changer (systemd timer)"
             echo "  --install-desktop-entry Install wayland-session desktop entry for display managers"
+            echo "  --install-yazi        Install yazi terminal file manager (builds from source)"
             echo "  --help            Show this help message"
             echo ""
             exit 0
@@ -125,6 +131,7 @@ show_interactive_menu() {
     echo "  [10] Remove GNOME/GDM3 (WARNING: removes desktop)"
     echo "  [11] Random wallpaper changer (systemd timer)"
     echo "  [12] Wayland session desktop entry (for display managers)"
+    echo "  [13] Yazi terminal file manager (builds from source)"
     echo ""
     echo "  [A] Install all core components (1-4)"
     echo "  [Q] Quit"
@@ -150,6 +157,7 @@ show_interactive_menu() {
             [Uu][Aa]) UPGRADE_MODE="all" ;;
             11) INSTALL_WALLPAPER=true ;;
             12) INSTALL_DESKTOP_ENTRY=true ;;
+            13) INSTALL_YAZI=true ;;
             [Aa])
                 INSTALL_DEPS=true
                 INSTALL_NIRI=true
@@ -177,8 +185,13 @@ INSTALL_NOCTALIA=false
 if [ "$SHOW_MENU" = true ]; then
     show_interactive_menu
 else
-    # Default: install all core components unless using --ask-step or --upgrade
-    if [ -z "$UPGRADE_MODE" ]; then
+    # Default: install all core components only if no optional flags were explicitly set
+    if [ -z "$UPGRADE_MODE" ] && \
+       [ "$INSTALL_VSCODE" = false ] && [ "$INSTALL_OMZ" = false ] && \
+       [ "$INSTALL_DOCS" = false ] && [ "$INSTALL_OFFICE" = false ] && \
+       [ "$APPLY_FIXES" = false ] && [ "$REMOVE_GNOME" = false ] && \
+       [ "$INSTALL_WALLPAPER" = false ] && [ "$INSTALL_DESKTOP_ENTRY" = false ] && \
+       [ "$INSTALL_YAZI" = false ]; then
         INSTALL_DEPS=true
         INSTALL_NIRI=true
         INSTALL_QUICKSHELL=true
@@ -214,7 +227,7 @@ if [ -n "$UPGRADE_MODE" ]; then
             echo "Upgrading Niri (building from source)..."
             TEMP_DIR=$(mktemp -d)
             cd "$TEMP_DIR"
-            git clone https://github.com/YaLTeR/niri.git
+            git clone --depth=1 https://github.com/YaLTeR/niri.git
             cd niri
             cargo build --release
             sudo install -Dm755 target/release/niri /usr/local/bin/niri
@@ -257,7 +270,7 @@ if [ -n "$UPGRADE_MODE" ]; then
             echo "[1/3] Upgrading Niri (building from source)..."
             TEMP_DIR=$(mktemp -d)
             cd "$TEMP_DIR"
-            git clone https://github.com/YaLTeR/niri.git
+            git clone --depth=1 https://github.com/YaLTeR/niri.git
             cd niri
             cargo build --release
             sudo install -Dm755 target/release/niri /usr/local/bin/niri
@@ -381,7 +394,7 @@ if [ "$INSTALL_NIRI" = true ] && ask_skip "Niri compositor (build from source)";
     fi
 
     cd "$TEMP_DIR"
-    git clone https://github.com/YaLTeR/niri.git
+    git clone --depth=1 https://github.com/YaLTeR/niri.git
     cd niri
 
     echo "Building Niri (this may take several minutes)..."
@@ -443,7 +456,7 @@ if [ "$INSTALL_NOCTALIA" = true ] && ask_skip "Noctalia shell configuration"; th
         cd noctalia-shell
         git pull
     else
-        git clone https://github.com/noctalia-dev/noctalia-shell.git
+        git clone --depth=1 https://github.com/noctalia-dev/noctalia-shell.git
     fi
 
     echo "Noctalia shell configuration installed successfully!"
@@ -723,9 +736,44 @@ DESKTOP_EOF
     echo "You can now select Niri from your display manager (GDM, SDDM, LightDM, etc.)"
 fi
 
+# Optional: Install yazi terminal file manager
+if [ "$INSTALL_YAZI" = true ]; then
+    echo ""
+    echo "================================================"
+    echo "Installing Yazi terminal file manager"
+    echo "================================================"
+
+    echo "Installing yazi prerequisites..."
+    sudo apt install -y --no-install-recommends ffmpeg 7zip jq poppler-utils fd-find ripgrep fzf zoxide imagemagick
+
+    # Ensure Rust is in PATH
+    if [ -f "$HOME/.cargo/env" ]; then
+        source "$HOME/.cargo/env"
+    fi
+
+    YAZI_TEMP=$(mktemp -d)
+    git clone --depth=1 https://github.com/sxyazi/yazi.git "$YAZI_TEMP/yazi"
+    cd "$YAZI_TEMP/yazi"
+
+    echo "Building yazi (this may take several minutes)..."
+    cargo build --release --locked
+
+    sudo install -Dm755 target/release/yazi /usr/local/bin/yazi
+    sudo install -Dm755 target/release/ya /usr/local/bin/ya
+
+    cd ~
+    rm -rf "$YAZI_TEMP"
+
+    if command -v yazi &> /dev/null; then
+        echo "Yazi installed successfully → /usr/local/bin/yazi"
+        yazi --version
+    else
+        echo "Error: Yazi installation failed"
+        exit 1
+    fi
+fi
+
 echo ""
-echo "================================================"
-echo "Installation Complete!"
 echo "================================================"
 echo ""
 echo "Enjoy your Niri + Noctalia setup!"
