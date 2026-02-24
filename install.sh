@@ -344,25 +344,40 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6
     echo "Installing system dependencies..."
     sudo apt install -y --no-install-recommends sudo gpg curl git cmake ninja-build build-essential \
 	qt6-wayland qt6-base-dev qt6-base-private-dev qt6-declarative-dev qt6-declarative-private-dev \
-        qt6-wayland-dev qt6-wayland-private-dev librust-libspa-sys-dev \
-        qt6-shadertools-dev spirv-tools pkg-config libcli11-dev librust-libseat-sys-dev \
+        qt6-wayland-dev qt6-wayland-private-dev libpipewire-0.3-dev \
+        qt6-shadertools-dev spirv-tools pkg-config libcli11-dev libseat-dev \
         wayland-protocols libwayland-dev libdrm-dev libgbm-dev libegl1-mesa-dev \
         libpolkit-agent-1-dev libjemalloc-dev libpam0g-dev swayidle \
-	librust-pango-sys-dev librust-libdisplay-info-sys-dev libxcb-cursor0 \
+	libpango1.0-dev libxcb-cursor0 \
 	alacritty fuzzel waybar xdg-desktop-portal-gtk xwayland
 
-    # Download and install libdisplay-info3 (latest version)
-    echo "Downloading and installing libdisplay-info3..."
-    LIBDISPLAY_URL=$(wget -qO- http://ftp.debian.org/debian/pool/main/libd/libdisplay-info/ | grep -oP 'libdisplay-info3_[^"]+_amd64\.deb' | sort -V | tail -1)
+    # Download and install libdisplay-info3 and libdisplay-info-dev (latest versions)
+    echo "Downloading and installing libdisplay-info3 and libdisplay-info-dev..."
+    LIBDISPLAY_POOL="http://ftp.debian.org/debian/pool/main/libd/libdisplay-info/"
+    LIBDISPLAY_LISTING=$(wget -qO- "$LIBDISPLAY_POOL")
+
+    LIBDISPLAY_URL=$(echo "$LIBDISPLAY_LISTING" | grep -oP 'libdisplay-info3_[^"]+_amd64\.deb' | sort -V | tail -1)
     if [ -n "$LIBDISPLAY_URL" ]; then
         TEMP_DEB=$(mktemp)
-        wget -O "$TEMP_DEB" "http://ftp.debian.org/debian/pool/main/libd/libdisplay-info/$LIBDISPLAY_URL"
+        wget -O "$TEMP_DEB" "${LIBDISPLAY_POOL}${LIBDISPLAY_URL}"
         sudo dpkg -i "$TEMP_DEB"
         rm "$TEMP_DEB"
         echo "libdisplay-info3 installed successfully"
     else
         echo "Warning: Could not find libdisplay-info3 package, trying apt install..."
         sudo apt install -y --no-install-recommends libdisplay-info3 || echo "Failed to install libdisplay-info3"
+    fi
+
+    LIBDISPLAY_DEV_URL=$(echo "$LIBDISPLAY_LISTING" | grep -oP 'libdisplay-info-dev_[^"]+_amd64\.deb' | sort -V | tail -1)
+    if [ -n "$LIBDISPLAY_DEV_URL" ]; then
+        TEMP_DEB=$(mktemp)
+        wget -O "$TEMP_DEB" "${LIBDISPLAY_POOL}${LIBDISPLAY_DEV_URL}"
+        sudo dpkg -i "$TEMP_DEB"
+        rm "$TEMP_DEB"
+        echo "libdisplay-info-dev installed successfully"
+    else
+        echo "Warning: Could not find libdisplay-info-dev package, trying apt install..."
+        sudo apt install -y --no-install-recommends libdisplay-info-dev || echo "Failed to install libdisplay-info-dev"
     fi
 
     # Install Rust toolchain
