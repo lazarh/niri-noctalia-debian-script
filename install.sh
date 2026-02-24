@@ -350,7 +350,8 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6
         wayland-protocols libwayland-dev libdrm-dev libgbm-dev libegl1-mesa-dev \
         libpolkit-agent-1-dev libjemalloc-dev libpam0g-dev swayidle \
 	libpango1.0-dev libxcb-cursor0 \
-	alacritty fuzzel waybar xdg-desktop-portal-gtk xwayland
+	alacritty fuzzel waybar xdg-desktop-portal-gtk xwayland \
+	qt6-gtk-platformtheme nwg-look
 
     # Download and install libdisplay-info3 and libdisplay-info-dev (latest versions)
     echo "Downloading and installing libdisplay-info3 and libdisplay-info-dev..."
