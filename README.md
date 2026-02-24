@@ -111,12 +111,12 @@ The script performs the following steps:
 
 ### [1/4] System Dependencies
 Installs all required build tools and libraries:
-- Build essentials (cmake, ninja-build, gcc, git, curl, etc.)
-- Qt6 development packages (base, declarative, wayland with private headers)
+- Build essentials (cmake, ninja-build, clang, libclang-dev, gcc, git, curl, etc.)
+- Qt6 development packages (base, declarative, wayland with private headers, gtk platform theme)
 - Wayland libraries (protocols, client, scanner)
 - Graphics libraries (libdrm, libgbm, EGL)
-- Additional dependencies (PAM, polkit, jemalloc, CLI11, libseat, libspa, libdisplay-info3)
-- Wayland desktop tools (alacritty, fuzzel, waybar, xdg-desktop-portal-gtk, xwayland)
+- Additional dependencies (PAM, polkit, jemalloc, CLI11, libseat, libpipewire, libpango, libdisplay-info)
+- Wayland desktop tools (alacritty, fuzzel, waybar, xdg-desktop-portal-gtk, xwayland, nwg-look)
 - **Rust toolchain** (installed via rustup if not already present)
 
 
@@ -250,6 +250,7 @@ If you have a display manager (GDM, SDDM, LightDM, etc.) and want to select Niri
 
 ### Build Tools
 - cmake, ninja-build, build-essential
+- clang, libclang-dev (required by bindgen for FFI binding generation)
 - pkg-config, spirv-tools
 - Rust toolchain (via rustup)
 
@@ -258,6 +259,7 @@ If you have a display manager (GDM, SDDM, LightDM, etc.) and want to select Niri
 - qt6-declarative-dev, qt6-declarative-private-dev
 - qt6-wayland-dev, qt6-wayland-private-dev
 - qt6-shadertools-dev
+- qt6-gtk-platformtheme
 
 ### System Libraries
 - libwayland-dev, wayland-protocols
@@ -266,13 +268,15 @@ If you have a display manager (GDM, SDDM, LightDM, etc.) and want to select Niri
 - libpam0g-dev
 - libjemalloc-dev
 - libcli11-dev
-- librust-libseat-sys-dev, librust-libspa-sys-dev
-- librust-pango-sys-dev, librust-libdisplay-info-sys-dev
-- libdisplay-info3 (downloaded from Debian repos)
+- libseat-dev
+- libpipewire-0.3-dev
+- libpango1.0-dev
+- libdisplay-info3, libdisplay-info-dev (downloaded from Debian repos)
 
 ### Wayland Desktop Tools
 - alacritty, fuzzel, waybar
 - xdg-desktop-portal-gtk, xwayland
+- nwg-look (GTK theme switcher)
 
 ## Troubleshooting
 
