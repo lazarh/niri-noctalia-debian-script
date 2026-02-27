@@ -18,6 +18,8 @@ UPGRADE_MODE=""
 INSTALL_WALLPAPER=false
 INSTALL_DESKTOP_ENTRY=false
 INSTALL_YAZI=false
+INSTALL_FONT=false
+INSTALL_NVIM=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -75,6 +77,14 @@ while [[ $# -gt 0 ]]; do
             INSTALL_YAZI=true
             shift
             ;;
+        --install-font)
+            INSTALL_FONT=true
+            shift
+            ;;
+        --install-nvim)
+            INSTALL_NVIM=true
+            shift
+            ;;
         --help)
             echo "Usage: $0 [OPTIONS]"
             echo ""
@@ -91,6 +101,8 @@ while [[ $# -gt 0 ]]; do
             echo "  --install-wallpaper Install random wallpaper changer (systemd timer)"
             echo "  --install-desktop-entry Install wayland-session desktop entry for display managers"
             echo "  --install-yazi        Install yazi terminal file manager (builds from source)"
+            echo "  --install-font        Install 0xProto Nerd Font and apply to alacritty"
+            echo "  --install-nvim        Install Neovim (latest stable) with lazy.nvim and oil.nvim"
             echo "  --help            Show this help message"
             echo ""
             exit 0
@@ -132,6 +144,8 @@ show_interactive_menu() {
     echo "  [11] Random wallpaper changer (systemd timer)"
     echo "  [12] Wayland session desktop entry (for display managers)"
     echo "  [13] Yazi terminal file manager (builds from source)"
+    echo "  [14] 0xProto Nerd Font (downloads and applies to alacritty)"
+    echo "  [15] Neovim with lazy.nvim + oil.nvim (latest stable binary)"
     echo ""
     echo "  [A] Install all core components (1-4)"
     echo "  [Q] Quit"
@@ -158,6 +172,8 @@ show_interactive_menu() {
             11) INSTALL_WALLPAPER=true ;;
             12) INSTALL_DESKTOP_ENTRY=true ;;
             13) INSTALL_YAZI=true ;;
+            14) INSTALL_FONT=true ;;
+            15) INSTALL_NVIM=true ;;
             [Aa])
                 INSTALL_DEPS=true
                 INSTALL_NIRI=true
@@ -191,7 +207,8 @@ else
        [ "$INSTALL_DOCS" = false ] && [ "$INSTALL_OFFICE" = false ] && \
        [ "$APPLY_FIXES" = false ] && [ "$REMOVE_GNOME" = false ] && \
        [ "$INSTALL_WALLPAPER" = false ] && [ "$INSTALL_DESKTOP_ENTRY" = false ] && \
-       [ "$INSTALL_YAZI" = false ]; then
+       [ "$INSTALL_YAZI" = false ] && [ "$INSTALL_FONT" = false ] && \
+       [ "$INSTALL_NVIM" = false ]; then
         INSTALL_DEPS=true
         INSTALL_NIRI=true
         INSTALL_QUICKSHELL=true
@@ -788,6 +805,122 @@ if [ "$INSTALL_YAZI" = true ]; then
         echo "Error: Yazi installation failed"
         exit 1
     fi
+fi
+
+# Optional: Install 0xProto Nerd Font
+if [ "$INSTALL_FONT" = true ]; then
+    echo ""
+    echo "================================================"
+    echo "Installing 0xProto Nerd Font"
+    echo "================================================"
+
+    FONT_DIR="$HOME/.local/share/fonts/0xProto"
+    mkdir -p "$FONT_DIR"
+
+    echo "Downloading 0xProto Nerd Font..."
+    FONT_TMP=$(mktemp -d)
+    wget -O "$FONT_TMP/0xProto.zip" "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/0xProto.zip"
+    unzip -o "$FONT_TMP/0xProto.zip" "*.ttf" -d "$FONT_DIR"
+    rm -rf "$FONT_TMP"
+
+    echo "Rebuilding font cache..."
+    fc-cache -fv
+
+    echo "Applying font to alacritty configuration..."
+    ALACRITTY_CONF="$HOME/.config/alacritty/alacritty.toml"
+    mkdir -p "$HOME/.config/alacritty"
+    if [ -f "$ALACRITTY_CONF" ]; then
+        # Remove any existing [font] section and its keys
+        python3 - "$ALACRITTY_CONF" <<'PYEOF'
+import re, sys
+path = sys.argv[1]
+with open(path, 'r') as f:
+    content = f.read()
+# Remove existing [font] section (section ends at next [header] or EOF)
+content = re.sub(r'\[font\][^\[]*', '', content, flags=re.DOTALL)
+content = content.rstrip() + '\n'
+with open(path, 'w') as f:
+    f.write(content)
+PYEOF
+        cat >> "$ALACRITTY_CONF" << 'FONT_EOF'
+
+[font]
+size = 10.0
+
+[font.normal]
+family = "0xProto Nerd Font Mono"
+style = "Regular"
+FONT_EOF
+    else
+        cat > "$ALACRITTY_CONF" << 'FONT_EOF'
+[font]
+size = 10.0
+
+[font.normal]
+family = "0xProto Nerd Font Mono"
+style = "Regular"
+FONT_EOF
+    fi
+
+    echo "0xProto Nerd Font installed and applied to alacritty!"
+    echo "Font location: $FONT_DIR"
+    echo "Alacritty config: $ALACRITTY_CONF"
+fi
+
+# Optional: Install Neovim with lazy.nvim and oil.nvim
+if [ "$INSTALL_NVIM" = true ]; then
+    echo ""
+    echo "================================================"
+    echo "Installing Neovim with lazy.nvim and oil.nvim"
+    echo "================================================"
+
+    echo "Downloading latest stable Neovim..."
+    NVIM_TMP=$(mktemp -d)
+    wget -O "$NVIM_TMP/nvim.tar.gz" "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz"
+    sudo tar -C /usr/local -xzf "$NVIM_TMP/nvim.tar.gz" --strip-components=1
+    rm -rf "$NVIM_TMP"
+
+    if ! command -v nvim &> /dev/null; then
+        echo "Error: Neovim installation failed"
+        exit 1
+    fi
+    echo "Neovim installed → $(command -v nvim)"
+    nvim --version | head -1
+
+    echo "Creating Neovim configuration with lazy.nvim and oil.nvim..."
+    mkdir -p "$HOME/.config/nvim"
+    cat > "$HOME/.config/nvim/init.lua" << 'NVIM_EOF'
+-- Bootstrap lazy.nvim
+local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+if not (vim.uv or vim.loop).fs_stat(lazypath) then
+  local out = vim.fn.system({
+    "git", "clone", "--filter=blob:none", "--branch=stable",
+    "https://github.com/folke/lazy.nvim.git", lazypath,
+  })
+  if vim.v.shell_error ~= 0 then
+    vim.api.nvim_echo({ { "Failed to clone lazy.nvim:\n", "ErrorMsg" }, { out, "WarningMsg" } }, true, {})
+    vim.fn.getchar()
+    os.exit(1)
+  end
+end
+vim.opt.rtp:prepend(lazypath)
+
+-- Setup lazy.nvim
+require("lazy").setup({
+  {
+    "stevearc/oil.nvim",
+    opts = {},
+    dependencies = { "nvim-tree/nvim-web-devicons" },
+  },
+})
+
+-- Setup oil.nvim (file manager replacing netrw)
+require("oil").setup()
+vim.keymap.set("n", "-", "<CMD>Oil<CR>", { desc = "Open parent directory" })
+NVIM_EOF
+
+    echo "Neovim configuration created at ~/.config/nvim/init.lua"
+    echo "Plugins (lazy.nvim + oil.nvim) will be installed on first launch of nvim."
 fi
 
 echo ""
