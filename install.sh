@@ -258,11 +258,9 @@ if [ -n "$UPGRADE_MODE" ]; then
             echo "Upgrading Quickshell..."
             TEMP_DIR=$(mktemp -d)
             cd "$TEMP_DIR"
-            git clone --depth=1 https://git.outfoxxed.me/quickshell/quickshell
-            cd quickshell
-            cmake -B build -G Ninja -DCRASH_REPORTER=OFF
-            cmake --build build
-            sudo cmake --install build
+            git clone https://github.com/noctalia-dev/noctalia-qs
+            cd noctalia-qs
+            ./bin/build.sh
             quickshell --version
             cd ~
             rm -rf "$TEMP_DIR"
@@ -301,11 +299,9 @@ if [ -n "$UPGRADE_MODE" ]; then
             echo "[2/3] Upgrading Quickshell..."
             TEMP_DIR=$(mktemp -d)
             cd "$TEMP_DIR"
-            git clone --depth=1 https://git.outfoxxed.me/quickshell/quickshell
-            cd quickshell
-            cmake -B build -G Ninja -DCRASH_REPORTER=OFF
-            cmake --build build
-            sudo cmake --install build
+            git clone https://github.com/noctalia-dev/noctalia-qs
+            cd noctalia-qs
+            ./bin/build.sh
             quickshell --version
             cd ~
             rm -rf "$TEMP_DIR"
@@ -458,12 +454,10 @@ if [ "$INSTALL_QUICKSHELL" = true ] && ask_skip "Quickshell"; then
     echo "Building and installing Quickshell from source..."
 
     cd "$TEMP_DIR"
-    git clone --depth=1 https://git.outfoxxed.me/quickshell/quickshell
-    cd quickshell
+    git clone https://github.com/noctalia-dev/noctalia-qs
+    cd noctalia-qs
 
-    cmake -B build -G Ninja -DCRASH_REPORTER=OFF
-    cmake --build build
-    sudo cmake --install build
+    ./bin/build.sh
 
     # Verify installation
     if command -v quickshell &> /dev/null; then

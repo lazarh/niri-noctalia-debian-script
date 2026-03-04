@@ -1,21 +1,21 @@
-# Niri + Quickshell + Noctalia Installation Script
+# Niri + Noctalia-QS + Noctalia Installation Script
 
-Automated installation script for setting up Niri compositor, Quickshell, and Noctalia shell on Debian-based systems.
+Automated installation script for setting up Niri compositor, Noctalia-QS, and Noctalia shell on Debian-based systems.
 
 ## Overview
 
 This script provides a complete installation workflow for:
 - **Niri**: A scrollable-tiling Wayland compositor
-- **Quickshell**: A QtQuick-based Wayland shell toolkit
-- **Noctalia**: A desktop shell for Quickshell
+- **Noctalia-QS**: A fork of [Quickshell](https://git.outfoxxed.me/quickshell/quickshell) — a QtQuick-based Wayland shell toolkit, maintained by the Noctalia team as a hard dependency since Noctalia v4.6
+- **Noctalia**: A desktop shell built on Noctalia-QS
 
 ## Prerequisites
 
 - **Debian 13 (Trixie)** or **Debian Forky** (minimal installation recommended)
 - Root/sudo access
 - Internet connection
-- **At least 16GB of free space in /tmp** (required for Quickshell build)
-  - The Quickshell compilation process requires significant temporary space
+- **At least 16GB of free space in /tmp** (required for Noctalia-QS build)
+  - The Noctalia-QS compilation process requires significant temporary space
   - If /tmp has less than 16GB, the build will likely fail with out-of-space errors
   - You can check available space with: `df -h /tmp`
 - **Minimal Debian installation without graphical environment** (recommended)
@@ -43,7 +43,7 @@ Use the `--menu` flag to select which components to install:
 ```
 
 This shows an interactive menu where you can choose:
-- Core components (1-4): System dependencies, Niri, Quickshell, Noctalia
+- Core components (1-4): System dependencies, Niri, Noctalia-QS, Noctalia
 - Upgrade options (U1-UA): Upgrade individual components or all at once
 - Optional components (5-13): VS Code, Oh My Zsh, document viewers, office tools, network fixes, GNOME removal, wallpaper changer, wayland-session desktop entry, Yazi file manager
 
@@ -64,7 +64,7 @@ Install specific optional components directly:
 ```bash
 # Upgrade components
 ./install.sh --upgrade niri           # Upgrade only Niri
-./install.sh --upgrade quickshell     # Upgrade only Quickshell
+./install.sh --upgrade quickshell     # Upgrade only Noctalia-QS (quickshell fork)
 ./install.sh --upgrade noctalia       # Upgrade only Noctalia configuration
 ./install.sh --upgrade all            # Upgrade all components
 
@@ -127,11 +127,12 @@ Builds and installs the Niri Wayland compositor from source:
 - Builds with Cargo in release mode
 - Installs binary and session files
 
-### [3/4] Quickshell
-Builds and installs Quickshell from source:
-- Clones from official repository
-- Builds with CMake/Ninja
-- Crash handler disabled (no google-breakpad dependency)
+### [3/4] Noctalia-QS
+Builds and installs Noctalia-QS from source:
+- Noctalia-QS is a fork of [Quickshell](https://git.outfoxxed.me/quickshell/quickshell), maintained by the Noctalia team
+- Since Noctalia v4.6, Noctalia-QS is a hard dependency — the upstream Quickshell is no longer supported by Noctalia
+- Clones from [noctalia-dev/noctalia-qs](https://github.com/noctalia-dev/noctalia-qs)
+- Builds using the bundled `./bin/build.sh` script
 - Verifies installation
 
 ### [4/4] Noctalia Shell Configuration
@@ -210,7 +211,7 @@ The script includes an upgrade mode to update already-installed components:
 ```bash
 # Upgrade individual components
 ./install.sh --upgrade niri           # Rebuilds Niri from latest source
-./install.sh --upgrade quickshell     # Rebuilds Quickshell from latest source
+./install.sh --upgrade quickshell     # Rebuilds Noctalia-QS from latest source
 ./install.sh --upgrade noctalia       # Pulls latest Noctalia configuration
 
 # Upgrade everything at once
@@ -281,12 +282,12 @@ If you have a display manager (GDM, SDDM, LightDM, etc.) and want to select Niri
 ## Troubleshooting
 
 ### Build Failures
-If Quickshell build fails due to missing dependencies, ensure all Qt6 private development packages are installed:
+If the Noctalia-QS build fails due to missing dependencies, ensure all Qt6 private development packages are installed:
 ```bash
 sudo apt install qt6-base-private-dev qt6-declarative-private-dev qt6-wayland-private-dev
 ```
 
-### Quickshell Not Found
+### Noctalia-QS (quickshell) Not Found
 After installation, if `quickshell` is not found, ensure the installation directory is in your PATH, or log out and back in.
 
 ## Repository Structure
@@ -300,12 +301,12 @@ After installation, if `quickshell` is not found, ensure the installation direct
 
 ## License
 
-This installation script is provided as-is. Individual components (Niri, Quickshell, Noctalia) have their own licenses.
+This installation script is provided as-is. Individual components (Niri, Noctalia-QS, Noctalia) have their own licenses.
 
 ## Credits
 
 - **Niri**: [YaLTeR/niri](https://github.com/YaLTeR/niri)
-- **Quickshell**: [outfoxxed/quickshell](https://git.outfoxxed.me/quickshell/quickshell)
+- **Noctalia-QS**: [noctalia-dev/noctalia-qs](https://github.com/noctalia-dev/noctalia-qs) (fork of [Quickshell](https://git.outfoxxed.me/quickshell/quickshell))
 - **Noctalia**: [noctalia-dev/noctalia-shell](https://github.com/noctalia-dev/noctalia-shell)
 - **Yazi**: [sxyazi/yazi](https://github.com/sxyazi/yazi)
 
