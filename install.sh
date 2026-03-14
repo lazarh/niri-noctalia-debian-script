@@ -21,6 +21,15 @@ INSTALL_YAZI=false
 INSTALL_FONT=false
 INSTALL_NVIM=false
 
+# Detect system architecture
+DETECTED_ARCH=$(dpkg --print-architecture)
+case "$DETECTED_ARCH" in
+    amd64)    ARCH_URL_SUFFIX="x86_64" ;;
+    arm64)    ARCH_URL_SUFFIX="arm64" ;;
+    armhf)    ARCH_URL_SUFFIX="armhf" ;;
+    *)        ARCH_URL_SUFFIX="$DETECTED_ARCH" ;;
+esac
+
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -371,7 +380,7 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6
     LIBDISPLAY_POOL="http://ftp.debian.org/debian/pool/main/libd/libdisplay-info/"
     LIBDISPLAY_LISTING=$(wget -qO- "$LIBDISPLAY_POOL")
 
-    LIBDISPLAY_URL=$(echo "$LIBDISPLAY_LISTING" | grep -oP 'libdisplay-info3_[^"]+_amd64\.deb' | sort -V | tail -1)
+    LIBDISPLAY_URL=$(echo "$LIBDISPLAY_LISTING" | grep -oP "libdisplay-info3_[^"]+_${DETECTED_ARCH}\.deb" | sort -V | tail -1)
     if [ -n "$LIBDISPLAY_URL" ]; then
         TEMP_DEB=$(mktemp)
         wget -O "$TEMP_DEB" "${LIBDISPLAY_POOL}${LIBDISPLAY_URL}"
@@ -383,7 +392,7 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6
         sudo apt install -y --no-install-recommends libdisplay-info3 || echo "Failed to install libdisplay-info3"
     fi
 
-    LIBDISPLAY_DEV_URL=$(echo "$LIBDISPLAY_LISTING" | grep -oP 'libdisplay-info-dev_[^"]+_amd64\.deb' | sort -V | tail -1)
+    LIBDISPLAY_DEV_URL=$(echo "$LIBDISPLAY_LISTING" | grep -oP "libdisplay-info-dev_[^"]+_${DETECTED_ARCH}\.deb" | sort -V | tail -1)
     if [ -n "$LIBDISPLAY_DEV_URL" ]; then
         TEMP_DEB=$(mktemp)
         wget -O "$TEMP_DEB" "${LIBDISPLAY_POOL}${LIBDISPLAY_DEV_URL}"
@@ -870,7 +879,7 @@ if [ "$INSTALL_NVIM" = true ]; then
 
     echo "Downloading latest stable Neovim..."
     NVIM_TMP=$(mktemp -d)
-    wget -O "$NVIM_TMP/nvim.tar.gz" "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz"
+    wget -O "$NVIM_TMP/nvim.tar.gz" "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-${ARCH_URL_SUFFIX}.tar.gz"
     sudo tar -C /usr/local -xzf "$NVIM_TMP/nvim.tar.gz" --strip-components=1
     rm -rf "$NVIM_TMP"
 
