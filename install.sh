@@ -25,7 +25,7 @@ INSTALL_NVIM=false
 DETECTED_ARCH=$(dpkg --print-architecture)
 case "$DETECTED_ARCH" in
     amd64)    ARCH_URL_SUFFIX="x86_64" ;;
-    arm64)    ARCH_URL_SUFFIX="arm64" ;;
+    arm64)    ARCH_URL_SUFFIX="aarch64" ;;
     armhf)    ARCH_URL_SUFFIX="armhf" ;;
     *)        ARCH_URL_SUFFIX="$DETECTED_ARCH" ;;
 esac
@@ -359,7 +359,7 @@ if [ "$INSTALL_DEPS" = true ]; then
     echo ""
     echo "[1/4] System dependencies"
 fi
-if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6, Rust, and prerequisites)"; then
+if [[ "$INSTALL_DEPS" = true ]] && ask_skip "system dependencies (build tools, Qt6, Rust, and prerequisites)"; then
     echo "Updating package lists..."
     sudo apt update
 
@@ -380,7 +380,7 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6
     LIBDISPLAY_POOL="http://ftp.debian.org/debian/pool/main/libd/libdisplay-info/"
     LIBDISPLAY_LISTING=$(wget -qO- "$LIBDISPLAY_POOL")
 
-    LIBDISPLAY_URL=$(echo "$LIBDISPLAY_LISTING" | grep -oP "libdisplay-info3_[^"]+_${DETECTED_ARCH}\.deb" | sort -V | tail -1)
+    LIBDISPLAY_URL=$(echo "$LIBDISPLAY_LISTING" | grep -oP "libdisplay-info3_[^\"]+_${DETECTED_ARCH}\.deb" | sort -V | tail -1)
     if [ -n "$LIBDISPLAY_URL" ]; then
         TEMP_DEB=$(mktemp)
         wget -O "$TEMP_DEB" "${LIBDISPLAY_POOL}${LIBDISPLAY_URL}"
@@ -392,7 +392,7 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6
         sudo apt install -y --no-install-recommends libdisplay-info3 || echo "Failed to install libdisplay-info3"
     fi
 
-    LIBDISPLAY_DEV_URL=$(echo "$LIBDISPLAY_LISTING" | grep -oP "libdisplay-info-dev_[^"]+_${DETECTED_ARCH}\.deb" | sort -V | tail -1)
+    LIBDISPLAY_DEV_URL=$(echo "$LIBDISPLAY_LISTING" | grep -oP "libdisplay-info-dev_[^\"]+_${DETECTED_ARCH}\.deb" | sort -V | tail -1)
     if [ -n "$LIBDISPLAY_DEV_URL" ]; then
         TEMP_DEB=$(mktemp)
         wget -O "$TEMP_DEB" "${LIBDISPLAY_POOL}${LIBDISPLAY_DEV_URL}"
@@ -424,7 +424,7 @@ if [ "$INSTALL_NIRI" = true ]; then
     echo ""
     echo "[2/4] Niri compositor"
 fi
-if [ "$INSTALL_NIRI" = true ] && ask_skip "Niri compositor (build from source)"; then
+if [[ "$INSTALL_NIRI" = true ]] && ask_skip "Niri compositor (build from source)"; then
     echo "Building and installing Niri from source..."
 
     # Ensure Rust is in PATH
@@ -459,7 +459,7 @@ if [ "$INSTALL_QUICKSHELL" = true ]; then
     echo ""
     echo "[3/4] Quickshell"
 fi
-if [ "$INSTALL_QUICKSHELL" = true ] && ask_skip "Quickshell"; then
+if [[ "$INSTALL_QUICKSHELL" = true ]] && ask_skip "Quickshell"; then
     echo "Building and installing Quickshell from source..."
 
     cd "$TEMP_DIR"
@@ -483,7 +483,7 @@ if [ "$INSTALL_NOCTALIA" = true ]; then
     echo ""
     echo "[4/4] Noctalia shell configuration"
 fi
-if [ "$INSTALL_NOCTALIA" = true ] && ask_skip "Noctalia shell configuration"; then
+if [[ "$INSTALL_NOCTALIA" = true ]] && ask_skip "Noctalia shell configuration"; then
     echo "Installing Noctalia shell configuration..."
     mkdir -p ~/.config/quickshell
     cd ~/.config/quickshell
