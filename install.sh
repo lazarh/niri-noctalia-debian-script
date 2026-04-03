@@ -260,7 +260,9 @@ if [ -n "$UPGRADE_MODE" ]; then
             cd "$TEMP_DIR"
             git clone https://github.com/noctalia-dev/noctalia-qs
             cd noctalia-qs
-            ./bin/build.sh
+            cmake -GNinja -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local
+            cmake --build build
+            sudo cmake --install build
             quickshell --version
             cd ~
             rm -rf "$TEMP_DIR"
@@ -301,7 +303,9 @@ if [ -n "$UPGRADE_MODE" ]; then
             cd "$TEMP_DIR"
             git clone https://github.com/noctalia-dev/noctalia-qs
             cd noctalia-qs
-            ./bin/build.sh
+            cmake -GNinja -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local
+            cmake --build build
+            sudo cmake --install build
             quickshell --version
             cd ~
             rm -rf "$TEMP_DIR"
@@ -457,7 +461,9 @@ if [ "$INSTALL_QUICKSHELL" = true ] && ask_skip "Quickshell"; then
     git clone https://github.com/noctalia-dev/noctalia-qs
     cd noctalia-qs
 
-    ./bin/build.sh
+    cmake -GNinja -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local
+    cmake --build build
+    sudo cmake --install build
 
     # Verify installation
     if command -v quickshell &> /dev/null; then
