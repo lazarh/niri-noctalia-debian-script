@@ -399,6 +399,25 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6
         sudo apt install -y --no-install-recommends libdisplay-info-dev || echo "Failed to install libdisplay-info-dev"
     fi
 
+    # Install missing wayland protocol: ext-background-effect-v1
+    # noctalia-qs requires this staging protocol which may not be present in the system's wayland-protocols package
+    EXT_BG_EFFECT_XML="/usr/share/wayland-protocols/staging/ext-background-effect/ext-background-effect-v1.xml"
+    if [ ! -f "$EXT_BG_EFFECT_XML" ]; then
+        echo "Installing missing wayland protocol: ext-background-effect-v1..."
+        sudo mkdir -p "$(dirname "$EXT_BG_EFFECT_XML")"
+        if sudo curl -sSfL \
+            "https://gitlab.freedesktop.org/wayland/wayland-protocols/-/raw/main/staging/ext-background-effect/ext-background-effect-v1.xml" \
+            -o "$EXT_BG_EFFECT_XML"; then
+            echo "ext-background-effect-v1.xml installed successfully"
+        else
+            echo "Error: Failed to download ext-background-effect-v1.xml from wayland-protocols upstream."
+            echo "Quickshell may fail to build without this file."
+            exit 1
+        fi
+    else
+        echo "ext-background-effect-v1.xml already present, skipping"
+    fi
+
     # Install Rust toolchain
     echo "Installing Rust toolchain..."
     if ! command -v rustc &> /dev/null; then
