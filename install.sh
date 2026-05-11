@@ -836,6 +836,9 @@ if [ "$INSTALL_FONT" = true ]; then
     FONT_DIR="$HOME/.local/share/fonts/0xProto"
     mkdir -p "$FONT_DIR"
 
+    echo "Installing unzip prerequisite..."
+    sudo apt install -y --no-install-recommends unzip
+
     echo "Downloading 0xProto Nerd Font..."
     FONT_TMP=$(mktemp -d)
     wget -O "$FONT_TMP/0xProto.zip" "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/0xProto.zip"
