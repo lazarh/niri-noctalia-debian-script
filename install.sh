@@ -466,6 +466,12 @@ if [ "$INSTALL_NIRI" = true ] && ask_skip "Niri compositor (build from source)";
         echo "Error: Niri installation failed"
         exit 1
     fi
+
+    echo ""
+    echo "Applying the standard niri config"
+    mkdir -p ~/.config/niri
+    cp "$SCRIPT_DIR/config.kdl" ~/.config/niri/config.kdl
+    echo "File config.kdl copied into ~/.config/niri "
 fi
 
 # Install Quickshell
@@ -514,11 +520,6 @@ if [ "$INSTALL_NOCTALIA" = true ] && ask_skip "Noctalia shell configuration"; th
 
     echo "Noctalia shell configuration installed successfully!"
     echo "Location: ~/.config/quickshell/noctalia-shell"
-    echo ""
-    echo "Applying the standard niri config to start Noctalia"
-    mkdir -p ~/.config/niri
-    cp "$SCRIPT_DIR/config.kdl" ~/.config/niri/config.kdl
-    echo "File config.kdl copied into ~/.config/niri "
 fi
 
 # Cleanup
