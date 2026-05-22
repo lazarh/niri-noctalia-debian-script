@@ -258,7 +258,7 @@ if [ -n "$UPGRADE_MODE" ]; then
             echo "Upgrading Quickshell..."
             TEMP_DIR=$(mktemp -d)
             cd "$TEMP_DIR"
-            git clone https://github.com/noctalia-dev/noctalia-qs
+            git clone --depth=1 https://github.com/noctalia-dev/noctalia-qs.git
             cd noctalia-qs
             cmake -GNinja -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local
             cmake --build build
@@ -301,7 +301,7 @@ if [ -n "$UPGRADE_MODE" ]; then
             echo "[2/3] Upgrading Quickshell..."
             TEMP_DIR=$(mktemp -d)
             cd "$TEMP_DIR"
-            git clone https://github.com/noctalia-dev/noctalia-qs
+            git clone --depth=1 https://github.com/noctalia-dev/noctalia-qs.git
             cd noctalia-qs
             cmake -GNinja -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local
             cmake --build build
@@ -477,7 +477,7 @@ if [ "$INSTALL_QUICKSHELL" = true ] && ask_skip "Quickshell"; then
     echo "Building and installing Quickshell from source..."
 
     cd "$TEMP_DIR"
-    git clone https://github.com/noctalia-dev/noctalia-qs
+    git clone --depth=1 https://github.com/noctalia-dev/noctalia-qs.git
     cd noctalia-qs
 
     cmake -GNinja -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local
