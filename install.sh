@@ -368,7 +368,8 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6
         libpolkit-agent-1-dev libjemalloc-dev libpam0g-dev swayidle \
 	libpango1.0-dev libxcb-cursor0 \
 	alacritty fuzzel waybar xdg-desktop-portal-gtk xwayland \
-	qt6-gtk-platformtheme nwg-look
+	qt6-gtk-platformtheme nwg-look \
+	papirus-icon-theme
 
     # Download and install libdisplay-info3 and libdisplay-info-dev (latest versions)
     echo "Downloading and installing libdisplay-info3 and libdisplay-info-dev..."
@@ -520,6 +521,38 @@ if [ "$INSTALL_NOCTALIA" = true ] && ask_skip "Noctalia shell configuration"; th
 
     echo "Noctalia shell configuration installed successfully!"
     echo "Location: ~/.config/quickshell/noctalia-shell"
+
+    # Configure GTK icon theme so the launcher can resolve application icons
+    echo "Configuring icon theme (Papirus)..."
+
+    _set_gtk_icon_theme() {
+        local cfg_dir="$1"
+        local cfg_file="$cfg_dir/settings.ini"
+        mkdir -p "$cfg_dir"
+        if [ ! -f "$cfg_file" ]; then
+            printf '[Settings]\ngtk-icon-theme-name=Papirus\ngtk-cursor-theme-name=Adwaita\ngtk-font-name=Sans 10\n' > "$cfg_file"
+        elif grep -q "gtk-icon-theme-name" "$cfg_file"; then
+            sed -i 's/^gtk-icon-theme-name=.*/gtk-icon-theme-name=Papirus/' "$cfg_file"
+        elif grep -q "^\[Settings\]" "$cfg_file"; then
+            sed -i '/^\[Settings\]/a gtk-icon-theme-name=Papirus' "$cfg_file"
+        else
+            printf '\n[Settings]\ngtk-icon-theme-name=Papirus\n' >> "$cfg_file"
+        fi
+    }
+
+    _set_gtk_icon_theme ~/.config/gtk-3.0
+    _set_gtk_icon_theme ~/.config/gtk-4.0
+
+    # Set icon theme in the user environment so Quickshell picks it up
+    mkdir -p ~/.config/environment.d
+    env_file=~/.config/environment.d/noctalia.conf
+    if grep -q "QS_ICON_THEME" "$env_file" 2>/dev/null; then
+        sed -i 's/^QS_ICON_THEME=.*/QS_ICON_THEME=Papirus/' "$env_file"
+    else
+        echo "QS_ICON_THEME=Papirus" >> "$env_file"
+    fi
+
+    echo "Icon theme set to Papirus."
 fi
 
 # Cleanup
