@@ -1,23 +1,18 @@
-# Niri + Noctalia-QS + Noctalia Installation Script
+# Niri + Noctalia Installation Script
 
-Automated installation script for setting up Niri compositor, Noctalia-QS, and Noctalia shell on Debian-based systems.
+Automated installation script for setting up Niri compositor and Noctalia shell on Debian-based systems.
 
 ## Overview
 
 This script provides a complete installation workflow for:
 - **Niri**: A scrollable-tiling Wayland compositor
-- **Noctalia-QS**: A fork of [Quickshell](https://git.outfoxxed.me/quickshell/quickshell) — a QtQuick-based Wayland shell toolkit, maintained by the Noctalia team as a hard dependency since Noctalia v4.6
-- **Noctalia**: A desktop shell built on Noctalia-QS
+- **Noctalia**: A native Wayland desktop shell (v5) — bars, launcher, lock screen, notifications, wallpaper, and more, built directly on Wayland with no Qt or GTK dependency
 
 ## Prerequisites
 
-- **Debian 13 (Trixie)** or **Debian Forky** (minimal installation recommended)
+- **Debian 13 (Trixie)** or later (minimal installation recommended)
 - Root/sudo access
 - Internet connection
-- **At least 16GB of free space in /tmp** (required for Noctalia-QS build)
-  - The Noctalia-QS compilation process requires significant temporary space
-  - If /tmp has less than 16GB, the build will likely fail with out-of-space errors
-  - You can check available space with: `df -h /tmp`
 - **Minimal Debian installation without graphical environment** (recommended)
   - This script is designed to run on a fresh, minimal Debian installation
   - It will install all necessary components to create a complete Wayland desktop environment
@@ -43,9 +38,9 @@ Use the `--menu` flag to select which components to install:
 ```
 
 This shows an interactive menu where you can choose:
-- Core components (1-4): System dependencies, Niri, Noctalia-QS, Noctalia
-- Upgrade options (U1-UA): Upgrade individual components or all at once
-- Optional components (5-13): VS Code, Oh My Zsh, document viewers, office tools, network fixes, GNOME removal, wallpaper changer, wayland-session desktop entry, Yazi file manager
+- Core components (1-3): System dependencies, Niri, Noctalia
+- Upgrade options (U1, U3, UA): Upgrade individual components or all at once
+- Optional components (5-15): VS Code, Oh My Zsh, document viewers, office tools, network fixes, GNOME removal, wallpaper changer, wayland-session desktop entry, Yazi file manager, 0xProto Nerd Font, Neovim
 
 ### Interactive Mode
 
@@ -64,8 +59,7 @@ Install specific optional components directly:
 ```bash
 # Upgrade components
 ./install.sh --upgrade niri           # Upgrade only Niri
-./install.sh --upgrade quickshell     # Upgrade only Noctalia-QS (quickshell fork)
-./install.sh --upgrade noctalia       # Upgrade only Noctalia configuration
+./install.sh --upgrade noctalia       # Upgrade only Noctalia
 ./install.sh --upgrade all            # Upgrade all components
 
 # Install VS Code with Wayland support
@@ -109,38 +103,32 @@ For a full list of options, run:
 
 The script performs the following steps:
 
-### [1/4] System Dependencies
+### [1/3] System Dependencies
 Installs all required build tools and libraries:
-- Build essentials (cmake, ninja-build, clang, libclang-dev, gcc, git, curl, etc.)
-- Qt6 development packages (base, declarative, wayland with private headers, gtk platform theme)
-- Wayland libraries (protocols, client, scanner)
-- Graphics libraries (libdrm, libgbm, EGL)
-- Additional dependencies (PAM, polkit, jemalloc, CLI11, libseat, libpipewire, libpango, libdisplay-info)
+- Build essentials (cmake, ninja-build, gcc, git, curl, meson, etc.)
+- Wayland libraries (protocols, client, scanner, EGL)
+- Noctalia v5 dependencies (sdbus-c++, pipewire, polkit, pam, pango, cairo, harfbuzz, freetype, fontconfig, xkbcommon, glib, rsvg, curl, qalculate, xml2, webp, epoxy, jemalloc, webp)
+- Display info library (libdisplay-info, for Niri)
 - Wayland desktop tools (alacritty, fuzzel, waybar, xdg-desktop-portal-gtk, xwayland, nwg-look)
 - **Rust toolchain** (installed via rustup if not already present)
+- **just** build tool (installed via `cargo install just`, required by Noctalia)
 
-
-
-### [2/4] Niri Compositor
+### [2/3] Niri Compositor
 Builds and installs the Niri Wayland compositor from source:
-- Clones from the official repository
+- Clones from [YaLTeR/niri](https://github.com/YaLTeR/niri)
 - Builds with Cargo in release mode
 - Installs binary and session files
 
-### [3/4] Noctalia-QS
-Builds and installs Noctalia-QS from source:
-- Noctalia-QS is a fork of [Quickshell](https://git.outfoxxed.me/quickshell/quickshell), maintained by the Noctalia team
-- Since Noctalia v4.6, Noctalia-QS is a hard dependency — the upstream Quickshell is no longer supported by Noctalia
-- Clones from [noctalia-dev/noctalia-qs](https://github.com/noctalia-dev/noctalia-qs)
-- Builds using the bundled `./bin/build.sh` script
+### [3/3] Noctalia
+Builds and installs Noctalia v5 from source:
+- Clones from [noctalia-dev/noctalia](https://github.com/noctalia-dev/noctalia)
+- Builds with `just configure release` + `just build release`
+- Installs binary and assets via `sudo just install release`
 - Verifies installation
-
-### [4/4] Noctalia Shell Configuration
-Clones the Noctalia shell configuration to `~/.config/quickshell/noctalia-shell`.
 
 ### Post-Installation
 
-The Noctalia step automatically copies `config.kdl` (if present next to the script) to `~/.config/niri/config.kdl`. If Niri was installed and `config.kdl` exists, you'll also be prompted again to apply or skip it.
+The Niri step automatically copies `config.kdl` (if present next to the script) to `~/.config/niri/config.kdl`. If Niri was installed and `config.kdl` exists, you'll also be prompted again to apply or skip it.
 
 ## Optional Components
 
@@ -180,7 +168,7 @@ The Noctalia step automatically copies `config.kdl` (if present next to the scri
 - Creates a script at `~/.local/bin/noctalia-random-wallpaper.sh`
 - Sets up systemd service and timer files
 - Automatically rotates wallpaper every 30 minutes
-- Uses Noctalia IPC to change wallpaper
+- Uses `noctalia msg wallpaper-set` to change the wallpaper
 - Timer starts on boot and runs continuously
 
 ### Wayland Session Desktop Entry (`--install-desktop-entry`)
@@ -211,11 +199,10 @@ The script includes an upgrade mode to update already-installed components:
 ```bash
 # Upgrade individual components
 ./install.sh --upgrade niri           # Rebuilds Niri from latest source
-./install.sh --upgrade quickshell     # Rebuilds Noctalia-QS from latest source
-./install.sh --upgrade noctalia       # Pulls latest Noctalia configuration
+./install.sh --upgrade noctalia       # Rebuilds Noctalia from latest source
 
 # Upgrade everything at once
-./install.sh --upgrade all            # Updates all three components
+./install.sh --upgrade all            # Updates both components
 ```
 
 **Note**: When using `--upgrade`, only the specified components are updated. Other installation options are ignored.
@@ -225,6 +212,19 @@ The script includes an upgrade mode to update already-installed components:
 ### Niri Configuration
 
 Place a `config.kdl` file next to the install script to have it automatically copied to `~/.config/niri/config.kdl` during installation.
+
+The bundled `config.kdl` is pre-configured to start Noctalia automatically and includes keybindings for common actions via Noctalia IPC:
+
+| Keybind | Action |
+|---------|--------|
+| `Mod+D` | Toggle launcher |
+| `Super+Alt+K` | Lock screen |
+| `Super+Alt+L` | Lock and suspend |
+| `Super+Alt+V` | Show clipboard |
+
+### Noctalia Configuration
+
+Noctalia stores its configuration at `~/.config/noctalia/config.toml`. A starter config with all defaults is available in the [noctalia repository](https://github.com/noctalia-dev/noctalia/blob/main/example.toml).
 
 ## Starting Niri
 
@@ -250,63 +250,56 @@ If you have a display manager (GDM, SDDM, LightDM, etc.) and want to select Niri
 ## Dependencies Installed
 
 ### Build Tools
-- cmake, ninja-build, build-essential
-- clang, libclang-dev (required by bindgen for FFI binding generation)
-- pkg-config, spirv-tools
+- cmake, ninja-build, build-essential, meson
+- pkg-config
 - Rust toolchain (via rustup)
-
-### Qt6 Packages
-- qt6-base-dev, qt6-base-private-dev
-- qt6-declarative-dev, qt6-declarative-private-dev
-- qt6-wayland-dev, qt6-wayland-private-dev
-- qt6-shadertools-dev
-- qt6-gtk-platformtheme
+- just (via `cargo install just`)
 
 ### System Libraries
-- libwayland-dev, wayland-protocols
-- libdrm-dev, libgbm-dev, libegl1-mesa-dev
-- libpolkit-agent-1-dev
-- libpam0g-dev
-- libjemalloc-dev
-- libcli11-dev
-- libseat-dev
-- libpipewire-0.3-dev
-- libpango1.0-dev
-- libdisplay-info3, libdisplay-info-dev (downloaded from Debian repos)
+- libwayland-dev, wayland-protocols, libegl1-mesa-dev
+- libsdbus-c++-dev (D-Bus IPC)
+- libpipewire-0.3-dev (audio)
+- libpolkit-agent-1-dev, libpam0g-dev (authentication)
+- libjemalloc-dev (memory allocator)
+- libpango1.0-dev, libcairo2-dev, libharfbuzz-dev, libfreetype-dev, libfontconfig1-dev (text/rendering)
+- librsvg2-dev, libwebp-dev, libepoxy-dev (images/GL)
+- libxkbcommon-dev, libglib2.0-dev (input/platform)
+- libcurl4-gnutls-dev, libqalculate-dev, libxml2-dev (network/data)
+- libdisplay-info3, libdisplay-info-dev (monitor info, for Niri)
 
 ### Wayland Desktop Tools
 - alacritty, fuzzel, waybar
 - xdg-desktop-portal-gtk, xwayland
 - nwg-look (GTK theme switcher)
+- swayidle (idle/lock trigger)
 
 ## Troubleshooting
 
-### Build Failures
-If the Noctalia-QS build fails due to missing dependencies, ensure all Qt6 private development packages are installed:
+### `just: command not found` during build
+The script sources `~/.cargo/env` automatically. If you encounter this outside the script, run:
 ```bash
-sudo apt install qt6-base-private-dev qt6-declarative-private-dev qt6-wayland-private-dev
+source ~/.cargo/env
 ```
 
-### Noctalia-QS (quickshell) Not Found
-After installation, if `quickshell` is not found, ensure the installation directory is in your PATH, or log out and back in.
+### Noctalia build fails with missing dependency
+Run the system dependencies step first (`[1]` in the menu or `./install.sh` default) to ensure all build libraries are installed.
 
 ## Repository Structure
 
 ```
 .
 ├── install.sh          # Main installation script
-├── config.kdl          # Optional Niri configuration
+├── config.kdl          # Niri configuration (pre-configured for Noctalia)
 └── README.md           # This file
 ```
 
 ## License
 
-This installation script is provided as-is. Individual components (Niri, Noctalia-QS, Noctalia) have their own licenses.
+This installation script is provided as-is. Individual components (Niri, Noctalia) have their own licenses.
 
 ## Credits
 
 - **Niri**: [YaLTeR/niri](https://github.com/YaLTeR/niri)
-- **Noctalia-QS**: [noctalia-dev/noctalia-qs](https://github.com/noctalia-dev/noctalia-qs) (fork of [Quickshell](https://git.outfoxxed.me/quickshell/quickshell))
-- **Noctalia**: [noctalia-dev/noctalia-shell](https://github.com/noctalia-dev/noctalia-shell)
+- **Noctalia**: [noctalia-dev/noctalia](https://github.com/noctalia-dev/noctalia)
 - **Yazi**: [sxyazi/yazi](https://github.com/sxyazi/yazi)
 
