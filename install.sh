@@ -373,7 +373,7 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6
 
     echo "Installing system dependencies..."
     sudo apt install -y --no-install-recommends sudo gpg curl git cmake ninja-build build-essential \
-	clang libclang-dev meson \
+	clang libclang-dev meson libsdbus-c++-dev \
 	qt6-wayland qt6-base-dev qt6-base-private-dev qt6-declarative-dev qt6-declarative-private-dev \
         qt6-wayland-dev qt6-wayland-private-dev libpipewire-0.3-dev \
         qt6-shadertools-dev spirv-tools pkg-config libcli11-dev libseat-dev \
