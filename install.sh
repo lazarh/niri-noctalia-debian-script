@@ -239,6 +239,11 @@ if [ -n "$UPGRADE_MODE" ]; then
     echo "Upgrade mode: $UPGRADE_MODE"
     echo ""
 
+    # Ensure cargo/just are in PATH
+    if [ -f "$HOME/.cargo/env" ]; then
+        source "$HOME/.cargo/env"
+    fi
+
     case "$UPGRADE_MODE" in
         niri)
             echo "Upgrading Niri (building from source)..."
@@ -351,6 +356,11 @@ fi
 
 # Create temporary directory for builds
 TEMP_DIR=$(mktemp -d)
+
+# Ensure cargo/just are in PATH if already installed
+if [ -f "$HOME/.cargo/env" ]; then
+    source "$HOME/.cargo/env"
+fi
 
 # Update package list and install dependencies
 if [ "$INSTALL_DEPS" = true ]; then
