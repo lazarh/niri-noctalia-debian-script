@@ -380,6 +380,9 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6
         wayland-protocols libwayland-dev libdrm-dev libgbm-dev libegl1-mesa-dev \
         libpolkit-agent-1-dev libjemalloc-dev libpam0g-dev swayidle \
 	libpango1.0-dev libxcb-cursor0 \
+	libfreetype-dev libfontconfig1-dev libcairo2-dev libharfbuzz-dev \
+	librsvg2-dev libxkbcommon-dev libglib2.0-dev \
+	libcurl4-openssl-dev libqalculate-dev libxml2-dev libwebp-dev libepoxy-dev \
 	alacritty fuzzel waybar xdg-desktop-portal-gtk xwayland \
 	qt6-gtk-platformtheme nwg-look
 
