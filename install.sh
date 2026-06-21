@@ -126,12 +126,12 @@ show_interactive_menu() {
     echo "  [1] System dependencies (build tools, Qt6, Rust)"
     echo "  [2] Niri compositor (build from source)"
     echo "  [3] Quickshell"
-    echo "  [4] Noctalia-shell"
+    echo "  [4] Noctalia"
     echo ""
     echo "Upgrade Options:"
     echo "  [U1] Upgrade Niri"
     echo "  [U2] Upgrade Quickshell"
-    echo "  [U3] Upgrade Noctalia-shell"
+    echo "  [U3] Upgrade Noctalia"
     echo "  [UA] Upgrade all (Niri + Quickshell + Noctalia)"
     echo ""
     echo "Optional Components:"
@@ -269,16 +269,17 @@ if [ -n "$UPGRADE_MODE" ]; then
             echo "Quickshell upgrade complete!"
             ;;
         noctalia)
-            echo "Upgrading Noctalia-shell..."
-            if [ -d ~/.config/quickshell/noctalia-shell ]; then
-                cd ~/.config/quickshell/noctalia-shell
-                git pull
-                echo "Noctalia-shell upgrade complete!"
-            else
-                echo "Error: Noctalia-shell not found at ~/.config/quickshell/noctalia-shell"
-                echo "Please install it first using the installation script."
-                exit 1
-            fi
+            echo "Upgrading Noctalia..."
+            TEMP_DIR=$(mktemp -d)
+            cd "$TEMP_DIR"
+            git clone --depth=1 https://github.com/noctalia-dev/noctalia.git
+            cd noctalia
+            just configure release
+            just build release
+            sudo env PATH="$PATH" just install release
+            cd ~
+            rm -rf "$TEMP_DIR"
+            echo "Noctalia upgrade complete!"
             ;;
         all)
             echo "Upgrading all components (Niri + Quickshell + Noctalia)..."
@@ -312,15 +313,17 @@ if [ -n "$UPGRADE_MODE" ]; then
             echo "Quickshell upgrade complete!"
             echo ""
 
-            echo "[3/3] Upgrading Noctalia-shell..."
-            if [ -d ~/.config/quickshell/noctalia-shell ]; then
-                cd ~/.config/quickshell/noctalia-shell
-                git pull
-                echo "Noctalia-shell upgrade complete!"
-            else
-                echo "Warning: Noctalia-shell not found at ~/.config/quickshell/noctalia-shell"
-                echo "Skipping noctalia-shell upgrade."
-            fi
+            echo "[3/3] Upgrading Noctalia..."
+            TEMP_DIR=$(mktemp -d)
+            cd "$TEMP_DIR"
+            git clone --depth=1 https://github.com/noctalia-dev/noctalia.git
+            cd noctalia
+            just configure release
+            just build release
+            sudo env PATH="$PATH" just install release
+            cd ~
+            rm -rf "$TEMP_DIR"
+            echo "Noctalia upgrade complete!"
             echo ""
 
             echo "All components upgraded successfully!"
@@ -360,7 +363,7 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6
 
     echo "Installing system dependencies..."
     sudo apt install -y --no-install-recommends sudo gpg curl git cmake ninja-build build-essential \
-	clang libclang-dev \
+	clang libclang-dev meson \
 	qt6-wayland qt6-base-dev qt6-base-private-dev qt6-declarative-dev qt6-declarative-private-dev \
         qt6-wayland-dev qt6-wayland-private-dev libpipewire-0.3-dev \
         qt6-shadertools-dev spirv-tools pkg-config libcli11-dev libseat-dev \
@@ -429,6 +432,11 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6
         rustup update stable
         rustup default stable
     fi
+
+    # Install just (build tool required by Noctalia)
+    echo "Installing just..."
+    cargo install just
+    echo "just installed successfully"
 
     echo "System dependencies installed successfully!"
 fi
@@ -500,26 +508,30 @@ if [ "$INSTALL_QUICKSHELL" = true ] && ask_skip "Quickshell"; then
     fi
 fi
 
-# Install Noctalia shell configuration
+# Install Noctalia
 if [ "$INSTALL_NOCTALIA" = true ]; then
     echo ""
-    echo "[4/4] Noctalia shell configuration"
+    echo "[4/4] Noctalia"
 fi
-if [ "$INSTALL_NOCTALIA" = true ] && ask_skip "Noctalia shell configuration"; then
-    echo "Installing Noctalia shell configuration..."
-    mkdir -p ~/.config/quickshell
-    cd ~/.config/quickshell
+if [ "$INSTALL_NOCTALIA" = true ] && ask_skip "Noctalia"; then
+    echo "Building and installing Noctalia from source..."
 
-    if [ -d "noctalia-shell" ]; then
-        echo "Noctalia-shell directory already exists. Updating..."
-        cd noctalia-shell
-        git pull
+    cd "$TEMP_DIR"
+    git clone --depth=1 https://github.com/noctalia-dev/noctalia.git
+    cd noctalia
+
+    just configure release
+    just build release
+    sudo env PATH="$PATH" just install release
+
+    # Verify installation
+    if command -v noctalia &> /dev/null; then
+        echo "Noctalia installed successfully!"
+        noctalia --version
     else
-        git clone --depth=1 https://github.com/noctalia-dev/noctalia-shell.git
+        echo "Error: Noctalia installation failed"
+        exit 1
     fi
-
-    echo "Noctalia shell configuration installed successfully!"
-    echo "Location: ~/.config/quickshell/noctalia-shell"
 fi
 
 # Cleanup
