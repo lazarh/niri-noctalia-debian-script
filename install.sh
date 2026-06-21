@@ -61,7 +61,7 @@ while [[ $# -gt 0 ]]; do
                 UPGRADE_MODE="$2"
                 shift 2
             else
-                echo "Error: --upgrade requires an argument (niri, quickshell, noctalia, or all)"
+                echo "Error: --upgrade requires an argument (niri, noctalia, or all)"
                 exit 1
             fi
             ;;
@@ -91,7 +91,7 @@ while [[ $# -gt 0 ]]; do
             echo "Options:"
             echo "  --ask-step        Interactive mode - prompt before each core installation step"
             echo "  --menu            Show interactive menu to select components"
-            echo "  --upgrade <type>  Upgrade components: niri, quickshell, noctalia, or all"
+            echo "  --upgrade <type>  Upgrade components: niri, noctalia, or all"
             echo "  --install-vscode  Install Visual Studio Code with Wayland support"
             echo "  --install-omz     Install Oh My Zsh"
             echo "  --install-docs    Install zathura and loupe (document viewers)"
@@ -123,16 +123,14 @@ show_interactive_menu() {
     echo "================================================"
     echo ""
     echo "Core Components:"
-    echo "  [1] System dependencies (build tools, Qt6, Rust)"
+    echo "  [1] System dependencies (build tools, Rust, and prerequisites)"
     echo "  [2] Niri compositor (build from source)"
-    echo "  [3] Quickshell"
-    echo "  [4] Noctalia"
+    echo "  [3] Noctalia"
     echo ""
     echo "Upgrade Options:"
     echo "  [U1] Upgrade Niri"
-    echo "  [U2] Upgrade Quickshell"
     echo "  [U3] Upgrade Noctalia"
-    echo "  [UA] Upgrade all (Niri + Quickshell + Noctalia)"
+    echo "  [UA] Upgrade all (Niri + Noctalia)"
     echo ""
     echo "Optional Components:"
     echo "  [5] Visual Studio Code (with Wayland support)"
@@ -147,7 +145,7 @@ show_interactive_menu() {
     echo "  [14] 0xProto Nerd Font (downloads and applies to alacritty)"
     echo "  [15] Neovim with lazy.nvim + oil.nvim (latest stable binary)"
     echo ""
-    echo "  [A] Install all core components (1-4)"
+    echo "  [A] Install all core components (1-3)"
     echo "  [Q] Quit"
     echo ""
     read -p "Select components (space-separated numbers, e.g., '1 2 3 5'): " selections
@@ -157,8 +155,7 @@ show_interactive_menu() {
         case $selection in
             1) INSTALL_DEPS=true ;;
             2) INSTALL_NIRI=true ;;
-            3) INSTALL_QUICKSHELL=true ;;
-            4) INSTALL_NOCTALIA=true ;;
+            3) INSTALL_NOCTALIA=true ;;
             5) INSTALL_VSCODE=true ;;
             6) INSTALL_OMZ=true ;;
             7) INSTALL_DOCS=true ;;
@@ -166,7 +163,6 @@ show_interactive_menu() {
             9) APPLY_FIXES=true ;;
             10) REMOVE_GNOME=true ;;
             [Uu]1) UPGRADE_MODE="niri" ;;
-            [Uu]2) UPGRADE_MODE="quickshell" ;;
             [Uu]3) UPGRADE_MODE="noctalia" ;;
             [Uu][Aa]) UPGRADE_MODE="all" ;;
             11) INSTALL_WALLPAPER=true ;;
@@ -177,7 +173,6 @@ show_interactive_menu() {
             [Aa])
                 INSTALL_DEPS=true
                 INSTALL_NIRI=true
-                INSTALL_QUICKSHELL=true
                 INSTALL_NOCTALIA=true
                 ;;
             [Qq])
@@ -194,7 +189,6 @@ show_interactive_menu() {
 # Initialize installation flags for core components
 INSTALL_DEPS=false
 INSTALL_NIRI=false
-INSTALL_QUICKSHELL=false
 INSTALL_NOCTALIA=false
 
 # Show menu if requested, otherwise enable all core components by default
@@ -211,7 +205,6 @@ else
        [ "$INSTALL_NVIM" = false ]; then
         INSTALL_DEPS=true
         INSTALL_NIRI=true
-        INSTALL_QUICKSHELL=true
         INSTALL_NOCTALIA=true
     fi
 fi
@@ -234,7 +227,7 @@ ask_skip() {
 # Handle upgrade mode
 if [ -n "$UPGRADE_MODE" ]; then
     echo "================================================"
-    echo "Niri + Quickshell + Noctalia Upgrade Script"
+    echo "Niri + Noctalia Upgrade Script"
     echo "================================================"
     echo "Upgrade mode: $UPGRADE_MODE"
     echo ""
@@ -259,20 +252,6 @@ if [ -n "$UPGRADE_MODE" ]; then
             rm -rf "$TEMP_DIR"
             echo "Niri upgrade complete!"
             ;;
-        quickshell)
-            echo "Upgrading Quickshell..."
-            TEMP_DIR=$(mktemp -d)
-            cd "$TEMP_DIR"
-            git clone --depth=1 https://github.com/noctalia-dev/noctalia-qs.git
-            cd noctalia-qs
-            cmake -GNinja -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local
-            cmake --build build
-            sudo cmake --install build
-            quickshell --version
-            cd ~
-            rm -rf "$TEMP_DIR"
-            echo "Quickshell upgrade complete!"
-            ;;
         noctalia)
             echo "Upgrading Noctalia..."
             TEMP_DIR=$(mktemp -d)
@@ -287,10 +266,10 @@ if [ -n "$UPGRADE_MODE" ]; then
             echo "Noctalia upgrade complete!"
             ;;
         all)
-            echo "Upgrading all components (Niri + Quickshell + Noctalia)..."
+            echo "Upgrading all components (Niri + Noctalia)..."
             echo ""
 
-            echo "[1/3] Upgrading Niri (building from source)..."
+            echo "[1/2] Upgrading Niri (building from source)..."
             TEMP_DIR=$(mktemp -d)
             cd "$TEMP_DIR"
             git clone --depth=1 https://github.com/YaLTeR/niri.git
@@ -304,21 +283,7 @@ if [ -n "$UPGRADE_MODE" ]; then
             echo "Niri upgrade complete!"
             echo ""
 
-            echo "[2/3] Upgrading Quickshell..."
-            TEMP_DIR=$(mktemp -d)
-            cd "$TEMP_DIR"
-            git clone --depth=1 https://github.com/noctalia-dev/noctalia-qs.git
-            cd noctalia-qs
-            cmake -GNinja -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local
-            cmake --build build
-            sudo cmake --install build
-            quickshell --version
-            cd ~
-            rm -rf "$TEMP_DIR"
-            echo "Quickshell upgrade complete!"
-            echo ""
-
-            echo "[3/3] Upgrading Noctalia..."
+            echo "[2/2] Upgrading Noctalia..."
             TEMP_DIR=$(mktemp -d)
             cd "$TEMP_DIR"
             git clone --depth=1 https://github.com/noctalia-dev/noctalia.git
@@ -335,7 +300,7 @@ if [ -n "$UPGRADE_MODE" ]; then
             ;;
         *)
             echo "Error: Invalid upgrade type '$UPGRADE_MODE'"
-            echo "Valid options: niri, quickshell, noctalia, all"
+            echo "Valid options: niri, noctalia, all"
             exit 1
             ;;
     esac
@@ -348,7 +313,7 @@ if [ -n "$UPGRADE_MODE" ]; then
 fi
 
 echo "================================================"
-echo "Niri + Quickshell + Noctalia Installation Script"
+echo "Niri + Noctalia Installation Script"
 echo "================================================"
 if [ "$ASK_STEP" = true ]; then
     echo "Running in interactive mode (--ask-step)"
@@ -365,26 +330,24 @@ fi
 # Update package list and install dependencies
 if [ "$INSTALL_DEPS" = true ]; then
     echo ""
-    echo "[1/4] System dependencies"
+    echo "[1/3] System dependencies"
 fi
-if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6, Rust, and prerequisites)"; then
+if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Rust, and prerequisites)"; then
     echo "Updating package lists..."
     sudo apt update
 
     echo "Installing system dependencies..."
     sudo apt install -y --no-install-recommends sudo gpg curl git cmake ninja-build build-essential \
-	clang libclang-dev meson libsdbus-c++-dev \
-	qt6-wayland qt6-base-dev qt6-base-private-dev qt6-declarative-dev qt6-declarative-private-dev \
-        qt6-wayland-dev qt6-wayland-private-dev libpipewire-0.3-dev \
-        qt6-shadertools-dev spirv-tools pkg-config libcli11-dev libseat-dev \
-        wayland-protocols libwayland-dev libdrm-dev libgbm-dev libegl1-mesa-dev \
+	meson libsdbus-c++-dev \
+	libpipewire-0.3-dev pkg-config \
+        wayland-protocols libwayland-dev libegl1-mesa-dev \
         libpolkit-agent-1-dev libjemalloc-dev libpam0g-dev swayidle \
-	libpango1.0-dev libxcb-cursor0 \
+	libpango1.0-dev \
 	libfreetype-dev libfontconfig1-dev libcairo2-dev libharfbuzz-dev \
 	librsvg2-dev libxkbcommon-dev libglib2.0-dev \
 	libcurl4-gnutls-dev libqalculate-dev libxml2-dev libwebp-dev libepoxy-dev \
 	alacritty fuzzel waybar xdg-desktop-portal-gtk xwayland \
-	qt6-gtk-platformtheme nwg-look
+	nwg-look
 
     # Download and install libdisplay-info3 and libdisplay-info-dev (latest versions)
     echo "Downloading and installing libdisplay-info3 and libdisplay-info-dev..."
@@ -415,25 +378,6 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Qt6
         sudo apt install -y --no-install-recommends libdisplay-info-dev || echo "Failed to install libdisplay-info-dev"
     fi
 
-    # Install missing wayland protocol: ext-background-effect-v1
-    # noctalia-qs requires this staging protocol which may not be present in the system's wayland-protocols package
-    EXT_BG_EFFECT_XML="/usr/share/wayland-protocols/staging/ext-background-effect/ext-background-effect-v1.xml"
-    if [ ! -f "$EXT_BG_EFFECT_XML" ]; then
-        echo "Installing missing wayland protocol: ext-background-effect-v1..."
-        sudo mkdir -p "$(dirname "$EXT_BG_EFFECT_XML")"
-        if sudo curl -sSfL \
-            "https://gitlab.freedesktop.org/wayland/wayland-protocols/-/raw/main/staging/ext-background-effect/ext-background-effect-v1.xml" \
-            -o "$EXT_BG_EFFECT_XML"; then
-            echo "ext-background-effect-v1.xml installed successfully"
-        else
-            echo "Error: Failed to download ext-background-effect-v1.xml from wayland-protocols upstream."
-            echo "Quickshell may fail to build without this file."
-            exit 1
-        fi
-    else
-        echo "ext-background-effect-v1.xml already present, skipping"
-    fi
-
     # Install Rust toolchain
     echo "Installing Rust toolchain..."
     if ! command -v rustc &> /dev/null; then
@@ -457,7 +401,7 @@ fi
 # Install Niri (build from source)
 if [ "$INSTALL_NIRI" = true ]; then
     echo ""
-    echo "[2/4] Niri compositor"
+    echo "[2/3] Niri compositor"
 fi
 if [ "$INSTALL_NIRI" = true ] && ask_skip "Niri compositor (build from source)"; then
     echo "Building and installing Niri from source..."
@@ -495,36 +439,10 @@ if [ "$INSTALL_NIRI" = true ] && ask_skip "Niri compositor (build from source)";
     echo "File config.kdl copied into ~/.config/niri "
 fi
 
-# Install Quickshell
-if [ "$INSTALL_QUICKSHELL" = true ]; then
-    echo ""
-    echo "[3/4] Quickshell"
-fi
-if [ "$INSTALL_QUICKSHELL" = true ] && ask_skip "Quickshell"; then
-    echo "Building and installing Quickshell from source..."
-
-    cd "$TEMP_DIR"
-    git clone --depth=1 https://github.com/noctalia-dev/noctalia-qs.git
-    cd noctalia-qs
-
-    cmake -GNinja -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local
-    cmake --build build
-    sudo cmake --install build
-
-    # Verify installation
-    if command -v quickshell &> /dev/null; then
-        echo "Quickshell installed successfully!"
-        quickshell --version
-    else
-        echo "Error: Quickshell installation failed"
-        exit 1
-    fi
-fi
-
 # Install Noctalia
 if [ "$INSTALL_NOCTALIA" = true ]; then
     echo ""
-    echo "[4/4] Noctalia"
+    echo "[3/3] Noctalia"
 fi
 if [ "$INSTALL_NOCTALIA" = true ] && ask_skip "Noctalia"; then
     echo "Building and installing Noctalia from source..."
@@ -742,7 +660,7 @@ fi
 RANDOM_WALLPAPER=$(find "$WALLPAPER_DIR" -type f \( -iname "*.jpg" -o -iname "*.png" -o -iname "*.jpeg" \) | shuf -n 1)
 
 if [ -n "$RANDOM_WALLPAPER" ]; then
-    quickshell -i noctalia-shell msg -c "Wallpaper.load('file://$RANDOM_WALLPAPER')"
+    noctalia msg wallpaper-set "$RANDOM_WALLPAPER"
     echo "Wallpaper changed to: $RANDOM_WALLPAPER"
 else
     echo "No wallpapers found in $WALLPAPER_DIR"
