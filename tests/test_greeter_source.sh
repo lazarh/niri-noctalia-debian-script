@@ -19,6 +19,17 @@ source_contains() {
     fi
 }
 
+source_not_contains() {
+    local label="$1" pattern="$2"
+    if ! grep -qF -- "$pattern" "$INSTALL_SCRIPT"; then
+        echo "  PASS: $label"
+        pass=$((pass + 1))
+    else
+        echo "  FAIL: $label — pattern should NOT exist: $pattern"
+        fail=$((fail + 1))
+    fi
+}
+
 echo "=== Test: Greeter-specific source patterns ==="
 
 echo ""
@@ -29,8 +40,12 @@ echo ""
 echo "--- Dependencies ---"
 source_contains "greetd package"          'greetd'
 source_contains "greetd enable"           'sudo systemctl enable greetd'
-source_contains "wlroots install"         'libwlroots-0.20-dev'
+source_contains "wlroots in deps"         'libwlroots-0.20-dev'
 source_contains "pkg-config check"        'pkg-config --exists wlroots-0.20'
+
+echo ""
+echo "--- No apt install in build step ---"
+source_not_contains "no apt in greeter step" 'Installing greeter dependencies'
 
 echo ""
 echo "--- Build/install step ---"

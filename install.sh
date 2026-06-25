@@ -280,14 +280,11 @@ if [ -n "$UPGRADE_MODE" ]; then
             ;;
         greeter)
             echo "Upgrading Noctalia Greeter..."
-            echo "Installing greeter dependencies..."
-            sudo apt-get install -y --no-install-recommends \
-                libwlroots-0.20-dev libegl-dev libgles-dev
 
             if ! pkg-config --exists wlroots-0.20; then
                 echo ""
                 echo "Error: wlroots-0.20 development files not found."
-                echo "Try: sudo apt-get install libwlroots-0.20-dev"
+                echo "Run: sudo apt install libwlroots-0.20-dev"
                 exit 1
             fi
 
@@ -335,14 +332,11 @@ if [ -n "$UPGRADE_MODE" ]; then
             echo ""
 
             echo "[3/3] Upgrading Noctalia Greeter..."
-            echo "Installing greeter dependencies..."
-            sudo apt-get install -y --no-install-recommends \
-                libwlroots-0.20-dev libegl-dev libgles-dev
 
             if ! pkg-config --exists wlroots-0.20; then
                 echo ""
                 echo "Error: wlroots-0.20 development files not found."
-                echo "Try: sudo apt-get install libwlroots-0.20-dev"
+                echo "Run: sudo apt install libwlroots-0.20-dev"
                 exit 1
             fi
 
@@ -404,6 +398,7 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Rus
 	meson libsdbus-c++-dev \
 	libpipewire-0.3-dev pkg-config \
         wayland-protocols libwayland-dev libegl1-mesa-dev \
+        libwlroots-0.20-dev libegl-dev libgles-dev \
         libpolkit-agent-1-dev libjemalloc-dev libpam0g-dev swayidle \
 	libpango1.0-dev \
 	libfreetype-dev libfontconfig1-dev libcairo2-dev libharfbuzz-dev \
@@ -536,16 +531,11 @@ if [ "$INSTALL_NOCTALIA_GREETER" = true ]; then
     echo "[4/4] Noctalia Greeter"
 fi
 if [ "$INSTALL_NOCTALIA_GREETER" = true ] && ask_skip "Noctalia Greeter"; then
-    echo "Installing greeter dependencies..."
-    sudo apt-get install -y --no-install-recommends \
-        libwlroots-0.20-dev libegl-dev libgles-dev
-
     if ! pkg-config --exists wlroots-0.20; then
         echo ""
         echo "Error: wlroots-0.20 development files not found."
-        echo "The package libwlroots-0.20-dev could not be installed."
-        echo "This usually means some system libraries need upgrading."
-        echo "Try: sudo apt upgrade"
+        echo "Run step [1] first to install system dependencies,"
+        echo "or install manually: sudo apt install libwlroots-0.20-dev"
         exit 1
     fi
 
