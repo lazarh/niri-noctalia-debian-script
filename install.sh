@@ -281,15 +281,13 @@ if [ -n "$UPGRADE_MODE" ]; then
         greeter)
             echo "Upgrading Noctalia Greeter..."
             echo "Installing greeter dependencies..."
-            sudo apt-get install -y --no-install-recommends -t testing \
-                libwlroots-0.20-dev libegl-dev libgles-dev 2>/dev/null || \
             sudo apt-get install -y --no-install-recommends \
                 libwlroots-0.20-dev libegl-dev libgles-dev
 
             if ! pkg-config --exists wlroots-0.20; then
                 echo ""
                 echo "Error: wlroots-0.20 development files not found."
-                echo "Try: sudo apt-get install -t testing libwlroots-0.20-dev"
+                echo "Try: sudo apt-get install libwlroots-0.20-dev"
                 exit 1
             fi
 
@@ -338,15 +336,13 @@ if [ -n "$UPGRADE_MODE" ]; then
 
             echo "[3/3] Upgrading Noctalia Greeter..."
             echo "Installing greeter dependencies..."
-            sudo apt-get install -y --no-install-recommends -t testing \
-                libwlroots-0.20-dev libegl-dev libgles-dev 2>/dev/null || \
             sudo apt-get install -y --no-install-recommends \
                 libwlroots-0.20-dev libegl-dev libgles-dev
 
             if ! pkg-config --exists wlroots-0.20; then
                 echo ""
                 echo "Error: wlroots-0.20 development files not found."
-                echo "Try: sudo apt-get install -t testing libwlroots-0.20-dev"
+                echo "Try: sudo apt-get install libwlroots-0.20-dev"
                 exit 1
             fi
 
@@ -541,19 +537,15 @@ if [ "$INSTALL_NOCTALIA_GREETER" = true ]; then
 fi
 if [ "$INSTALL_NOCTALIA_GREETER" = true ] && ask_skip "Noctalia Greeter"; then
     echo "Installing greeter dependencies..."
-    sudo apt-get install -y --no-install-recommends -t testing \
-        libwlroots-0.20-dev libegl-dev libgles-dev 2>/dev/null || \
     sudo apt-get install -y --no-install-recommends \
         libwlroots-0.20-dev libegl-dev libgles-dev
 
     if ! pkg-config --exists wlroots-0.20; then
         echo ""
         echo "Error: wlroots-0.20 development files not found."
-        echo "Could not install libwlroots-0.20-dev. This may be because your"
-        echo "apt sources have stale package versions. Try running:"
-        echo "  sudo apt-get install -t testing libwlroots-0.20-dev"
-        echo "If the issue persists, check your /etc/apt/sources.list for"
-        echo "conflicting mirrors and ensure deb.debian.org is available."
+        echo "The package libwlroots-0.20-dev could not be installed."
+        echo "This usually means some system libraries need upgrading."
+        echo "Try: sudo apt upgrade"
         exit 1
     fi
 
