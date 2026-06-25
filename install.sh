@@ -20,6 +20,7 @@ INSTALL_DESKTOP_ENTRY=false
 INSTALL_YAZI=false
 INSTALL_FONT=false
 INSTALL_NVIM=false
+INSTALL_NOCTALIA_GREETER=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -61,7 +62,7 @@ while [[ $# -gt 0 ]]; do
                 UPGRADE_MODE="$2"
                 shift 2
             else
-                echo "Error: --upgrade requires an argument (niri, noctalia, or all)"
+                echo "Error: --upgrade requires an argument (niri, noctalia, greeter, or all)"
                 exit 1
             fi
             ;;
@@ -85,13 +86,17 @@ while [[ $# -gt 0 ]]; do
             INSTALL_NVIM=true
             shift
             ;;
+        --install-noctalia-greeter)
+            INSTALL_NOCTALIA_GREETER=true
+            shift
+            ;;
         --help)
             echo "Usage: $0 [OPTIONS]"
             echo ""
             echo "Options:"
             echo "  --ask-step        Interactive mode - prompt before each core installation step"
             echo "  --menu            Show interactive menu to select components"
-            echo "  --upgrade <type>  Upgrade components: niri, noctalia, or all"
+            echo "  --upgrade <type>  Upgrade components: niri, noctalia, greeter, or all"
             echo "  --install-vscode  Install Visual Studio Code with Wayland support"
             echo "  --install-omz     Install Oh My Zsh"
             echo "  --install-docs    Install zathura and loupe (document viewers)"
@@ -103,6 +108,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --install-yazi        Install yazi terminal file manager (builds from source)"
             echo "  --install-font        Install 0xProto Nerd Font and apply to alacritty"
             echo "  --install-nvim        Install Neovim (latest stable) with lazy.nvim and oil.nvim"
+            echo "  --install-noctalia-greeter Install Noctalia Greeter (greetd login greeter)"
             echo "  --help            Show this help message"
             echo ""
             exit 0
@@ -126,11 +132,13 @@ show_interactive_menu() {
     echo "  [1] System dependencies (build tools, Rust, and prerequisites)"
     echo "  [2] Niri compositor (build from source)"
     echo "  [3] Noctalia"
+    echo "  [4] Noctalia Greeter"
     echo ""
     echo "Upgrade Options:"
     echo "  [U1] Upgrade Niri"
-    echo "  [U3] Upgrade Noctalia"
-    echo "  [UA] Upgrade all (Niri + Noctalia)"
+    echo "  [U2] Upgrade Noctalia"
+    echo "  [U3] Upgrade Noctalia Greeter"
+    echo "  [UA] Upgrade all (Niri + Noctalia + Greeter)"
     echo ""
     echo "Optional Components:"
     echo "  [5] Visual Studio Code (with Wayland support)"
@@ -145,10 +153,10 @@ show_interactive_menu() {
     echo "  [14] 0xProto Nerd Font (downloads and applies to alacritty)"
     echo "  [15] Neovim with lazy.nvim + oil.nvim (latest stable binary)"
     echo ""
-    echo "  [A] Install all core components (1-3)"
+    echo "  [A] Install all core components (1-4)"
     echo "  [Q] Quit"
     echo ""
-    read -p "Select components (space-separated numbers, e.g., '1 2 3 5'): " selections
+    read -p "Select components (space-separated numbers, e.g., '1 2 3 4 5'): " selections
 
     # Parse selections
     for selection in $selections; do
@@ -156,6 +164,7 @@ show_interactive_menu() {
             1) INSTALL_DEPS=true ;;
             2) INSTALL_NIRI=true ;;
             3) INSTALL_NOCTALIA=true ;;
+            4) INSTALL_NOCTALIA_GREETER=true ;;
             5) INSTALL_VSCODE=true ;;
             6) INSTALL_OMZ=true ;;
             7) INSTALL_DOCS=true ;;
@@ -163,7 +172,8 @@ show_interactive_menu() {
             9) APPLY_FIXES=true ;;
             10) REMOVE_GNOME=true ;;
             [Uu]1) UPGRADE_MODE="niri" ;;
-            [Uu]3) UPGRADE_MODE="noctalia" ;;
+            [Uu]2) UPGRADE_MODE="noctalia" ;;
+            [Uu]3) UPGRADE_MODE="greeter" ;;
             [Uu][Aa]) UPGRADE_MODE="all" ;;
             11) INSTALL_WALLPAPER=true ;;
             12) INSTALL_DESKTOP_ENTRY=true ;;
@@ -174,6 +184,7 @@ show_interactive_menu() {
                 INSTALL_DEPS=true
                 INSTALL_NIRI=true
                 INSTALL_NOCTALIA=true
+                INSTALL_NOCTALIA_GREETER=true
                 ;;
             [Qq])
                 echo "Installation cancelled."
@@ -190,6 +201,7 @@ show_interactive_menu() {
 INSTALL_DEPS=false
 INSTALL_NIRI=false
 INSTALL_NOCTALIA=false
+INSTALL_NOCTALIA_GREETER=false
 
 # Show menu if requested, otherwise enable all core components by default
 if [ "$SHOW_MENU" = true ]; then
@@ -202,10 +214,11 @@ else
        [ "$APPLY_FIXES" = false ] && [ "$REMOVE_GNOME" = false ] && \
        [ "$INSTALL_WALLPAPER" = false ] && [ "$INSTALL_DESKTOP_ENTRY" = false ] && \
        [ "$INSTALL_YAZI" = false ] && [ "$INSTALL_FONT" = false ] && \
-       [ "$INSTALL_NVIM" = false ]; then
+       [ "$INSTALL_NVIM" = false ] && [ "$INSTALL_NOCTALIA_GREETER" = false ]; then
         INSTALL_DEPS=true
         INSTALL_NIRI=true
         INSTALL_NOCTALIA=true
+        INSTALL_NOCTALIA_GREETER=true
     fi
 fi
 
@@ -265,11 +278,25 @@ if [ -n "$UPGRADE_MODE" ]; then
             rm -rf "$TEMP_DIR"
             echo "Noctalia upgrade complete!"
             ;;
+        greeter)
+            echo "Upgrading Noctalia Greeter..."
+            TEMP_DIR=$(mktemp -d)
+            cd "$TEMP_DIR"
+            git clone --depth=1 https://github.com/noctalia-dev/noctalia-greeter.git
+            cd noctalia-greeter
+            just configure-release
+            just build-release
+            sudo meson install -C build-release
+            sudo ./scripts/setup_greeter_system.sh
+            cd ~
+            rm -rf "$TEMP_DIR"
+            echo "Noctalia Greeter upgrade complete!"
+            ;;
         all)
-            echo "Upgrading all components (Niri + Noctalia)..."
+            echo "Upgrading all components (Niri + Noctalia + Greeter)..."
             echo ""
 
-            echo "[1/2] Upgrading Niri (building from source)..."
+            echo "[1/3] Upgrading Niri (building from source)..."
             TEMP_DIR=$(mktemp -d)
             cd "$TEMP_DIR"
             git clone --depth=1 https://github.com/YaLTeR/niri.git
@@ -283,7 +310,7 @@ if [ -n "$UPGRADE_MODE" ]; then
             echo "Niri upgrade complete!"
             echo ""
 
-            echo "[2/2] Upgrading Noctalia..."
+            echo "[2/3] Upgrading Noctalia..."
             TEMP_DIR=$(mktemp -d)
             cd "$TEMP_DIR"
             git clone --depth=1 https://github.com/noctalia-dev/noctalia.git
@@ -296,11 +323,25 @@ if [ -n "$UPGRADE_MODE" ]; then
             echo "Noctalia upgrade complete!"
             echo ""
 
+            echo "[3/3] Upgrading Noctalia Greeter..."
+            TEMP_DIR=$(mktemp -d)
+            cd "$TEMP_DIR"
+            git clone --depth=1 https://github.com/noctalia-dev/noctalia-greeter.git
+            cd noctalia-greeter
+            just configure-release
+            just build-release
+            sudo meson install -C build-release
+            sudo ./scripts/setup_greeter_system.sh
+            cd ~
+            rm -rf "$TEMP_DIR"
+            echo "Noctalia Greeter upgrade complete!"
+            echo ""
+
             echo "All components upgraded successfully!"
             ;;
         *)
             echo "Error: Invalid upgrade type '$UPGRADE_MODE'"
-            echo "Valid options: niri, noctalia, all"
+            echo "Valid options: niri, noctalia, greeter, all"
             exit 1
             ;;
     esac
@@ -330,7 +371,7 @@ fi
 # Update package list and install dependencies
 if [ "$INSTALL_DEPS" = true ]; then
     echo ""
-    echo "[1/3] System dependencies"
+    echo "[1/4] System dependencies"
 fi
 if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Rust, and prerequisites)"; then
     echo "Updating package lists..."
@@ -341,13 +382,16 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Rus
 	meson libsdbus-c++-dev \
 	libpipewire-0.3-dev pkg-config \
         wayland-protocols libwayland-dev libegl1-mesa-dev \
+        libwlroots-0.20-dev libegl-dev libgles-dev \
         libpolkit-agent-1-dev libjemalloc-dev libpam0g-dev swayidle \
 	libpango1.0-dev \
 	libfreetype-dev libfontconfig1-dev libcairo2-dev libharfbuzz-dev \
 	librsvg2-dev libxkbcommon-dev libglib2.0-dev \
 	libcurl4-gnutls-dev libqalculate-dev libxml2-dev libwebp-dev libepoxy-dev \
 	alacritty fuzzel waybar xdg-desktop-portal-gtk xwayland \
-	nwg-look
+	nwg-look greetd
+
+    sudo systemctl enable greetd
 
     # Download and install libdisplay-info3 and libdisplay-info-dev (latest versions)
     echo "Downloading and installing libdisplay-info3 and libdisplay-info-dev..."
@@ -401,7 +445,7 @@ fi
 # Install Niri (build from source)
 if [ "$INSTALL_NIRI" = true ]; then
     echo ""
-    echo "[2/3] Niri compositor"
+    echo "[2/4] Niri compositor"
 fi
 if [ "$INSTALL_NIRI" = true ] && ask_skip "Niri compositor (build from source)"; then
     echo "Building and installing Niri from source..."
@@ -442,7 +486,7 @@ fi
 # Install Noctalia
 if [ "$INSTALL_NOCTALIA" = true ]; then
     echo ""
-    echo "[3/3] Noctalia"
+    echo "[3/4] Noctalia"
 fi
 if [ "$INSTALL_NOCTALIA" = true ] && ask_skip "Noctalia"; then
     echo "Building and installing Noctalia from source..."
@@ -463,6 +507,26 @@ if [ "$INSTALL_NOCTALIA" = true ] && ask_skip "Noctalia"; then
         echo "Error: Noctalia installation failed"
         exit 1
     fi
+fi
+
+# Install Noctalia Greeter
+if [ "$INSTALL_NOCTALIA_GREETER" = true ]; then
+    echo ""
+    echo "[4/4] Noctalia Greeter"
+fi
+if [ "$INSTALL_NOCTALIA_GREETER" = true ] && ask_skip "Noctalia Greeter"; then
+    echo "Building and installing Noctalia Greeter from source..."
+
+    cd "$TEMP_DIR"
+    git clone --depth=1 https://github.com/noctalia-dev/noctalia-greeter.git
+    cd noctalia-greeter
+
+    just configure-release
+    just build-release
+    sudo meson install -C build-release
+    sudo ./scripts/setup_greeter_system.sh
+
+    echo "Noctalia Greeter installed successfully!"
 fi
 
 # Cleanup

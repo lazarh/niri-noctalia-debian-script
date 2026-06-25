@@ -7,6 +7,7 @@ Automated installation script for setting up Niri compositor and Noctalia shell 
 This script provides a complete installation workflow for:
 - **Niri**: A scrollable-tiling Wayland compositor
 - **Noctalia**: A native Wayland desktop shell (v5) — bars, launcher, lock screen, notifications, wallpaper, and more, built directly on Wayland with no Qt or GTK dependency
+- **Noctalia Greeter**: A minimal login greeter for greetd that matches Noctalia Shell's visual language
 
 ## Prerequisites
 
@@ -38,8 +39,8 @@ Use the `--menu` flag to select which components to install:
 ```
 
 This shows an interactive menu where you can choose:
-- Core components (1-3): System dependencies, Niri, Noctalia
-- Upgrade options (U1, U3, UA): Upgrade individual components or all at once
+- Core components (1-4): System dependencies, Niri, Noctalia, Noctalia Greeter
+- Upgrade options (U1, U2, U3, UA): Upgrade individual components or all at once
 - Optional components (5-15): VS Code, Oh My Zsh, document viewers, office tools, network fixes, GNOME removal, wallpaper changer, wayland-session desktop entry, Yazi file manager, 0xProto Nerd Font, Neovim
 
 ### Interactive Mode
@@ -60,7 +61,11 @@ Install specific optional components directly:
 # Upgrade components
 ./install.sh --upgrade niri           # Upgrade only Niri
 ./install.sh --upgrade noctalia       # Upgrade only Noctalia
-./install.sh --upgrade all            # Upgrade all components
+./install.sh --upgrade greeter        # Upgrade only Noctalia Greeter
+./install.sh --upgrade all            # Upgrade all components (Niri + Noctalia + Greeter)
+
+# Install Noctalia Greeter
+./install.sh --install-noctalia-greeter
 
 # Install VS Code with Wayland support
 ./install.sh --install-vscode
@@ -103,7 +108,7 @@ For a full list of options, run:
 
 The script performs the following steps:
 
-### [1/3] System Dependencies
+### [1/4] System Dependencies
 Installs all required build tools and libraries:
 - Build essentials (cmake, ninja-build, gcc, git, curl, meson, etc.)
 - Wayland libraries (protocols, client, scanner, EGL)
@@ -113,18 +118,26 @@ Installs all required build tools and libraries:
 - **Rust toolchain** (installed via rustup if not already present)
 - **just** build tool (installed via `cargo install just`, required by Noctalia)
 
-### [2/3] Niri Compositor
+### [2/4] Niri Compositor
 Builds and installs the Niri Wayland compositor from source:
 - Clones from [YaLTeR/niri](https://github.com/YaLTeR/niri)
 - Builds with Cargo in release mode
 - Installs binary and session files
 
-### [3/3] Noctalia
+### [3/4] Noctalia
 Builds and installs Noctalia v5 from source:
 - Clones from [noctalia-dev/noctalia](https://github.com/noctalia-dev/noctalia)
 - Builds with `just configure release` + `just build release`
 - Installs binary and assets via `sudo just install release`
 - Verifies installation
+
+### [4/4] Noctalia Greeter
+Builds and installs Noctalia Greeter from source — a login greeter for greetd matching Noctalia's visual language:
+- Clones from [noctalia-dev/noctalia-greeter](https://github.com/noctalia-dev/noctalia-greeter)
+- Builds with `just configure-release` + `just build-release`
+- Installs binary and assets via `sudo meson install -C build-release`
+- Runs `setup_greeter_system.sh` to configure greetd, create log directories, and write initial greeter config
+- greetd service is enabled automatically
 
 ### Post-Installation
 
@@ -200,9 +213,10 @@ The script includes an upgrade mode to update already-installed components:
 # Upgrade individual components
 ./install.sh --upgrade niri           # Rebuilds Niri from latest source
 ./install.sh --upgrade noctalia       # Rebuilds Noctalia from latest source
+./install.sh --upgrade greeter        # Rebuilds Noctalia Greeter from latest source
 
 # Upgrade everything at once
-./install.sh --upgrade all            # Updates both components
+./install.sh --upgrade all            # Updates all components
 ```
 
 **Note**: When using `--upgrade`, only the specified components are updated. Other installation options are ignored.
@@ -257,6 +271,7 @@ If you have a display manager (GDM, SDDM, LightDM, etc.) and want to select Niri
 
 ### System Libraries
 - libwayland-dev, wayland-protocols, libegl1-mesa-dev
+- libwlroots-0.20-dev, libegl-dev, libgles-dev (wlroots compositor libraries, for Noctalia Greeter)
 - libsdbus-c++-dev (D-Bus IPC)
 - libpipewire-0.3-dev (audio)
 - libpolkit-agent-1-dev, libpam0g-dev (authentication)
@@ -272,6 +287,7 @@ If you have a display manager (GDM, SDDM, LightDM, etc.) and want to select Niri
 - xdg-desktop-portal-gtk, xwayland
 - nwg-look (GTK theme switcher)
 - swayidle (idle/lock trigger)
+- greetd (login greeter daemon, for Noctalia Greeter)
 
 ## Troubleshooting
 
@@ -290,6 +306,11 @@ Run the system dependencies step first (`[1]` in the menu or `./install.sh` defa
 .
 ├── install.sh          # Main installation script
 ├── config.kdl          # Niri configuration (pre-configured for Noctalia)
+├── tests/              # Test scripts (bash-based assertions)
+│   ├── run_tests.sh
+│   ├── test_help_output.sh
+│   ├── test_menu_source.sh
+│   └── test_greeter_source.sh
 └── README.md           # This file
 ```
 
@@ -301,5 +322,6 @@ This installation script is provided as-is. Individual components (Niri, Noctali
 
 - **Niri**: [YaLTeR/niri](https://github.com/YaLTeR/niri)
 - **Noctalia**: [noctalia-dev/noctalia](https://github.com/noctalia-dev/noctalia)
+- **Noctalia Greeter**: [noctalia-dev/noctalia-greeter](https://github.com/noctalia-dev/noctalia-greeter)
 - **Yazi**: [sxyazi/yazi](https://github.com/sxyazi/yazi)
 
