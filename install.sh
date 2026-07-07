@@ -400,7 +400,7 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Rus
         wayland-protocols libwayland-dev libegl1-mesa-dev \
         libwlroots-0.20-dev libegl-dev libgles-dev \
         libpolkit-agent-1-dev libjemalloc-dev libpam0g-dev swayidle \
-	libpango1.0-dev \
+	libpango1.0-dev libwireplumber-0.5-dev \
 	libfreetype-dev libfontconfig1-dev libcairo2-dev libharfbuzz-dev \
 	librsvg2-dev libxkbcommon-dev libglib2.0-dev \
 	libcurl4-gnutls-dev libqalculate-dev libxml2-dev libwebp-dev libepoxy-dev \
