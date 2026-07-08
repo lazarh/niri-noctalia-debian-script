@@ -21,6 +21,7 @@ run_test() {
 run_test "$SCRIPT_DIR/test_help_output.sh"
 run_test "$SCRIPT_DIR/test_menu_source.sh"
 run_test "$SCRIPT_DIR/test_greeter_source.sh"
+run_test "$SCRIPT_DIR/test_debian_detection.sh"
 
 echo "================================================"
 if [ "$any_failed" = true ]; then

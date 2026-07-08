@@ -40,8 +40,13 @@ echo ""
 echo "--- Dependencies ---"
 source_contains "greetd package"          'greetd'
 source_contains "greetd enable"           'sudo systemctl enable greetd'
-source_contains "wlroots in deps"         'libwlroots-0.20-dev'
-source_contains "pkg-config check"        'pkg-config --exists wlroots-0.20'
+source_contains "wlroots in deps"         'libwlroots-${WLROOTS_VERSION}-dev'
+source_contains "pkg-config check"        'pkg-config --exists wlroots-'
+
+echo ""
+echo "--- XML protocol download (Trixie) ---"
+source_contains "mkdir for XML protocol"     'mkdir -p /usr/share/wayland-protocols/staging/ext-background-effect'
+source_contains "curl XML protocol"          'ext-background-effect-v1.xml'
 
 echo ""
 echo "--- No apt install in build step ---"

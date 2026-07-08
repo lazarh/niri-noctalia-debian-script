@@ -222,6 +222,22 @@ else
     fi
 fi
 
+# Function to detect Debian version and set wlroots version
+detect_wlroots_version() {
+    local os_release_file="${1:-/etc/os-release}"
+    local version_codename=""
+    if [ -f "$os_release_file" ]; then
+        version_codename=$(grep -oP 'VERSION_CODENAME=\K.*' "$os_release_file" 2>/dev/null || echo "")
+    fi
+    if [ "$version_codename" = "trixie" ]; then
+        WLROOTS_VERSION="0.18"
+        NEED_XML_CURL=true
+    else
+        WLROOTS_VERSION="0.20"
+        NEED_XML_CURL=false
+    fi
+}
+
 # Function to ask user if they want to skip a step
 ask_skip() {
     local step_name="$1"
@@ -236,6 +252,9 @@ ask_skip() {
     fi
     return 0
 }
+
+# Detect Debian version and set wlroots variables
+detect_wlroots_version
 
 # Handle upgrade mode
 if [ -n "$UPGRADE_MODE" ]; then
@@ -281,10 +300,10 @@ if [ -n "$UPGRADE_MODE" ]; then
         greeter)
             echo "Upgrading Noctalia Greeter..."
 
-            if ! pkg-config --exists wlroots-0.20; then
+            if ! pkg-config --exists wlroots-${WLROOTS_VERSION}; then
                 echo ""
-                echo "Error: wlroots-0.20 development files not found."
-                echo "Run: sudo apt install libwlroots-0.20-dev"
+                echo "Error: wlroots-${WLROOTS_VERSION} development files not found."
+                echo "Run: sudo apt install libwlroots-${WLROOTS_VERSION}-dev"
                 exit 1
             fi
 
@@ -333,10 +352,10 @@ if [ -n "$UPGRADE_MODE" ]; then
 
             echo "[3/3] Upgrading Noctalia Greeter..."
 
-            if ! pkg-config --exists wlroots-0.20; then
+            if ! pkg-config --exists wlroots-${WLROOTS_VERSION}; then
                 echo ""
-                echo "Error: wlroots-0.20 development files not found."
-                echo "Run: sudo apt install libwlroots-0.20-dev"
+                echo "Error: wlroots-${WLROOTS_VERSION} development files not found."
+                echo "Run: sudo apt install libwlroots-${WLROOTS_VERSION}-dev"
                 exit 1
             fi
 
@@ -398,7 +417,7 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Rus
 	meson libsdbus-c++-dev \
 	libpipewire-0.3-dev pkg-config \
         wayland-protocols libwayland-dev libegl1-mesa-dev \
-        libwlroots-0.20-dev libegl-dev libgles-dev \
+        libwlroots-${WLROOTS_VERSION}-dev libegl-dev libgles-dev \
         libpolkit-agent-1-dev libjemalloc-dev libpam0g-dev swayidle \
 	libpango1.0-dev libwireplumber-0.5-dev \
 	libfreetype-dev libfontconfig1-dev libcairo2-dev libharfbuzz-dev \
@@ -408,6 +427,13 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Rus
 	nwg-look greetd
 
     sudo systemctl enable greetd
+
+    # Download ext-background-effect protocol XML for wlroots 0.18 (Trixie)
+    if [ "$NEED_XML_CURL" = true ]; then
+        echo "Downloading ext-background-effect protocol XML..."
+        sudo mkdir -p /usr/share/wayland-protocols/staging/ext-background-effect
+        sudo curl -L 'https://gitlab.freedesktop.org/wayland/wayland-protocols/-/raw/main/staging/ext-background-effect/ext-background-effect-v1.xml?inline=false' -o /usr/share/wayland-protocols/staging/ext-background-effect/ext-background-effect-v1.xml
+    fi
 
     # Download and install libdisplay-info3 and libdisplay-info-dev (latest versions)
     echo "Downloading and installing libdisplay-info3 and libdisplay-info-dev..."
@@ -531,11 +557,11 @@ if [ "$INSTALL_NOCTALIA_GREETER" = true ]; then
     echo "[4/4] Noctalia Greeter"
 fi
 if [ "$INSTALL_NOCTALIA_GREETER" = true ] && ask_skip "Noctalia Greeter"; then
-    if ! pkg-config --exists wlroots-0.20; then
+    if ! pkg-config --exists wlroots-${WLROOTS_VERSION}; then
         echo ""
-        echo "Error: wlroots-0.20 development files not found."
+        echo "Error: wlroots-${WLROOTS_VERSION} development files not found."
         echo "Run step [1] first to install system dependencies,"
-        echo "or install manually: sudo apt install libwlroots-0.20-dev"
+        echo "or install manually: sudo apt install libwlroots-${WLROOTS_VERSION}-dev"
         exit 1
     fi
 
