@@ -424,7 +424,7 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Rus
 	librsvg2-dev libxkbcommon-dev libglib2.0-dev libtomlplusplus-dev \
 	libcurl4-gnutls-dev libqalculate-dev libxml2-dev libwebp-dev libepoxy-dev \
 	alacritty fuzzel waybar xdg-desktop-portal-gtk xwayland \
-	libstb-dev nwg-look greetd
+        libsecret-1-dev libsodium-dev libstb-dev nwg-look greetd
 
     sudo systemctl enable greetd
 
