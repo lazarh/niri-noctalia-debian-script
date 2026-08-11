@@ -414,7 +414,7 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Rus
 
     echo "Installing system dependencies..."
     sudo apt install -y --no-install-recommends sudo gpg curl git cmake ninja-build build-essential \
-	meson libsdbus-c++-dev \
+	meson libsdbus-c++-dev libical-dev libjxl-dev libsndfile1-dev \
 	libpipewire-0.3-dev pkg-config libmd4c-dev \
         wayland-protocols libwayland-dev libegl1-mesa-dev \
         libwlroots-${WLROOTS_VERSION}-dev libegl-dev libgles-dev \
