@@ -229,7 +229,8 @@ detect_wlroots_version() {
     if [ -f "$os_release_file" ]; then
         version_codename=$(grep -oP 'VERSION_CODENAME=\K.*' "$os_release_file" 2>/dev/null || echo "")
     fi
-    if [ "$version_codename" = "trixie" ]; then
+    if [ "$version_codename" = "trixie" ] || [ "$version_codename" = "gigi" ]; then
+        # LMDE 7 (gigi) is based on Trixie, so it uses wlroots 0.18 too
         WLROOTS_VERSION="0.18"
         NEED_XML_CURL=true
     else

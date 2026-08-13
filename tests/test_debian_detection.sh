@@ -42,6 +42,10 @@ echo "--- Trixie check ---"
 source_contains "checks for trixie" 'trixie'
 
 echo ""
+echo "--- LMDE (gigi) check ---"
+source_contains "checks for gigi" 'gigi'
+
+echo ""
 echo "--- Output variables ---"
 source_contains "sets WLROOTS_VERSION" 'WLROOTS_VERSION'
 source_contains "sets NEED_XML_CURL" 'NEED_XML_CURL'
@@ -72,6 +76,21 @@ if echo "$trixie_result" | grep -q 'WLROOTS_VERSION=0.18' && echo "$trixie_resul
     pass=$((pass + 1))
 else
     echo "  FAIL: Trixie detection got: $trixie_result"
+    fail=$((fail + 1))
+fi
+rm -rf "$tmpdir"
+tmpdir=""
+
+# LMDE (gigi) case — based on Trixie, also uses wlroots 0.18
+echo "  Testing LMDE (gigi) detection..."
+tmpdir=$(mktemp -d)
+echo 'VERSION_CODENAME=gigi' > "$tmpdir/os-release"
+gigi_result=$(run_detection "$tmpdir/os-release")
+if echo "$gigi_result" | grep -q 'WLROOTS_VERSION=0.18' && echo "$gigi_result" | grep -q 'NEED_XML_CURL=true'; then
+    echo "  PASS: Gigi sets version 0.18 and NEED_XML_CURL=true"
+    pass=$((pass + 1))
+else
+    echo "  FAIL: Gigi detection got: $gigi_result"
     fail=$((fail + 1))
 fi
 rm -rf "$tmpdir"
