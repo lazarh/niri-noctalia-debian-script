@@ -1,13 +1,50 @@
 #!/bin/bash
 
-set -e  # Exit on error
+set -euo pipefail
 
-# Capture script directory at the beginning
+# Capture script directory and original working directory at the beginning
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ORIG_PWD="$(pwd)"
+
+# Temporary build directories/files, all removed when the script exits — even on
+# error or Ctrl-C, so builds never leak into /tmp.
+TEMP_PATHS=()
+
+# Register a path to be removed by the exit trap. Must be called at top level or
+# inside a function invoked in the current shell (not in a subshell).
+register_temp() {
+    TEMP_PATHS+=("$1")
+}
+
+cleanup_temps() {
+    local path
+    for path in "${TEMP_PATHS[@]+"${TEMP_PATHS[@]}"}"; do
+        [ -n "$path" ] && rm -rf "$path"
+    done
+    TEMP_PATHS=()
+}
+
+cleanup_on_exit() {
+    local status=$?
+    cleanup_temps
+    exit "$status"
+}
+trap cleanup_on_exit EXIT
+
+# Put the rustup-installed toolchain (cargo, rustc) on PATH
+source_cargo_env() {
+    if [ -f "$HOME/.cargo/env" ]; then
+        # shellcheck disable=SC1091
+        source "$HOME/.cargo/env"
+    fi
+}
 
 # Configuration flags
 ASK_STEP=false
 SHOW_MENU=false
+# Core components are installed by default; any explicitly requested component
+# (other than --menu) switches that off.
+CORE_BY_DEFAULT=true
 INSTALL_VSCODE=false
 INSTALL_OMZ=false
 INSTALL_DOCS=false
@@ -22,6 +59,11 @@ INSTALL_FONT=false
 INSTALL_NVIM=false
 INSTALL_NOCTALIA_GREETER=false
 
+# Any explicitly requested component turns off the "install everything core" default
+select_component() {
+    CORE_BY_DEFAULT=false
+}
+
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -35,31 +77,38 @@ while [[ $# -gt 0 ]]; do
             ;;
         --install-vscode)
             INSTALL_VSCODE=true
+            select_component
             shift
             ;;
         --install-omz)
             INSTALL_OMZ=true
+            select_component
             shift
             ;;
         --install-docs)
             INSTALL_DOCS=true
+            select_component
             shift
             ;;
         --install-office)
             INSTALL_OFFICE=true
+            select_component
             shift
             ;;
         --apply-fixes)
             APPLY_FIXES=true
+            select_component
             shift
             ;;
         --remove-gnome)
             REMOVE_GNOME=true
+            select_component
             shift
             ;;
         --upgrade)
-            if [[ -n "$2" && ! "$2" =~ ^-- ]]; then
+            if [[ -n "${2:-}" && ! "${2:-}" =~ ^-- ]]; then
                 UPGRADE_MODE="$2"
+                select_component
                 shift 2
             else
                 echo "Error: --upgrade requires an argument (niri, noctalia, greeter, or all)"
@@ -68,26 +117,32 @@ while [[ $# -gt 0 ]]; do
             ;;
         --install-wallpaper)
             INSTALL_WALLPAPER=true
+            select_component
             shift
             ;;
         --install-desktop-entry)
             INSTALL_DESKTOP_ENTRY=true
+            select_component
             shift
             ;;
         --install-yazi)
             INSTALL_YAZI=true
+            select_component
             shift
             ;;
         --install-font)
             INSTALL_FONT=true
+            select_component
             shift
             ;;
         --install-nvim)
             INSTALL_NVIM=true
+            select_component
             shift
             ;;
         --install-noctalia-greeter)
             INSTALL_NOCTALIA_GREETER=true
+            select_component
             shift
             ;;
         --help)
@@ -111,6 +166,10 @@ while [[ $# -gt 0 ]]; do
             echo "  --install-noctalia-greeter Install Noctalia Greeter (greetd login greeter)"
             echo "  --help            Show this help message"
             echo ""
+            echo "With no options, the four core components are installed (dependencies,"
+            echo "Niri, Noctalia, Noctalia Greeter). Passing any --install-* or --upgrade"
+            echo "flag installs only what you asked for; --menu lets you pick from a list."
+            echo ""
             exit 0
             ;;
         *)
@@ -123,7 +182,7 @@ done
 
 # Interactive menu function
 show_interactive_menu() {
-    clear
+    clear 2>/dev/null || true
     echo "================================================"
     echo "  Niri Installation - Component Selection Menu"
     echo "================================================"
@@ -156,10 +215,10 @@ show_interactive_menu() {
     echo "  [A] Install all core components (1-4)"
     echo "  [Q] Quit"
     echo ""
-    read -p "Select components (space-separated numbers, e.g., '1 2 3 4 5'): " selections
+    read -r -p "Select components (space-separated numbers, e.g., '1 2 3 4 5'): " selections || true
 
     # Parse selections
-    for selection in $selections; do
+    for selection in ${selections:-}; do
         case $selection in
             1) INSTALL_DEPS=true ;;
             2) INSTALL_NIRI=true ;;
@@ -203,31 +262,28 @@ INSTALL_NIRI=false
 INSTALL_NOCTALIA=false
 INSTALL_NOCTALIA_GREETER=false
 
-# Show menu if requested, otherwise enable all core components by default
+# Show menu if requested, otherwise enable all core components unless a specific
+# component was requested on the command line
 if [ "$SHOW_MENU" = true ]; then
     show_interactive_menu
-else
-    # Default: install all core components only if no optional flags were explicitly set
-    if [ -z "$UPGRADE_MODE" ] && \
-       [ "$INSTALL_VSCODE" = false ] && [ "$INSTALL_OMZ" = false ] && \
-       [ "$INSTALL_DOCS" = false ] && [ "$INSTALL_OFFICE" = false ] && \
-       [ "$APPLY_FIXES" = false ] && [ "$REMOVE_GNOME" = false ] && \
-       [ "$INSTALL_WALLPAPER" = false ] && [ "$INSTALL_DESKTOP_ENTRY" = false ] && \
-       [ "$INSTALL_YAZI" = false ] && [ "$INSTALL_FONT" = false ] && \
-       [ "$INSTALL_NVIM" = false ] && [ "$INSTALL_NOCTALIA_GREETER" = false ]; then
-        INSTALL_DEPS=true
-        INSTALL_NIRI=true
-        INSTALL_NOCTALIA=true
-        INSTALL_NOCTALIA_GREETER=true
-    fi
+elif [ "$CORE_BY_DEFAULT" = true ]; then
+    INSTALL_DEPS=true
+    INSTALL_NIRI=true
+    INSTALL_NOCTALIA=true
+    INSTALL_NOCTALIA_GREETER=true
 fi
 
-# Function to detect Debian version and set wlroots version
+# Detect Debian version and set wlroots version. Accepts an os-release path as an
+# optional argument so tests can point it at a fixture.
+# shellcheck disable=SC2120
 detect_wlroots_version() {
     local os_release_file="${1:-/etc/os-release}"
     local version_codename=""
     if [ -f "$os_release_file" ]; then
-        version_codename=$(grep -oP 'VERSION_CODENAME=\K.*' "$os_release_file" 2>/dev/null || echo "")
+        # Sourced in a subshell so the os-release variables do not leak into the
+        # script's own namespace
+        # shellcheck disable=SC1090
+        version_codename=$( . "$os_release_file" >/dev/null 2>&1 && printf '%s' "${VERSION_CODENAME:-}" )
     fi
     if [ "$version_codename" = "trixie" ]; then
         WLROOTS_VERSION="0.18"
@@ -238,19 +294,148 @@ detect_wlroots_version() {
     fi
 }
 
-# Function to ask user if they want to skip a step
+# Ask the user whether to run a step (only prompts in --ask-step mode)
 ask_skip() {
     local step_name="$1"
     if [ "$ASK_STEP" = false ]; then
         return 0  # Don't skip, proceed with installation
     fi
-    read -p "Do you want to install $step_name? (Y/n): " response
+    local response
+    read -r -p "Do you want to install $step_name? (Y/n): " response || true
     response=${response:-Y}  # Default to Y if empty
     if [[ ! "$response" =~ ^[Yy]$ ]]; then
         echo "Skipping $step_name..."
         return 1
     fi
     return 0
+}
+
+# Clone a repository shallowly into the current build directory
+clone_repo() {
+    local url="$1" name="$2"
+    echo "Cloning $url..."
+    git clone --depth=1 "$url" "$name"
+}
+
+# Fail early with instructions if the wlroots development files are missing
+require_wlroots_dev() {
+    if ! pkg-config --exists wlroots-${WLROOTS_VERSION}; then
+        echo ""
+        echo "Error: wlroots-${WLROOTS_VERSION} development files not found."
+        echo "Install the system dependencies first, or run it manually:"
+        echo "  sudo apt install libwlroots-${WLROOTS_VERSION}-dev"
+        return 1
+    fi
+}
+
+# Verify a freshly installed binary is reachable, failing loudly if it is not
+verify_installed() {
+    local bin="$1" label="$2"
+    if ! command -v "$bin" &> /dev/null; then
+        echo "Error: $label installation failed ($bin not found on PATH)"
+        return 1
+    fi
+    echo "$label installed successfully → $(command -v "$bin")"
+    "$bin" --version || true
+}
+
+# Build and install the Niri compositor from source
+build_niri() {
+    echo "Building and installing Niri from source..."
+
+    cd "$TEMP_DIR"
+    clone_repo https://github.com/YaLTeR/niri.git niri
+    cd niri
+
+    echo "Building Niri (this may take several minutes)..."
+    cargo build --release
+
+    echo "Installing Niri..."
+    sudo install -Dm755 target/release/niri /usr/local/bin/niri
+    sudo install -Dm644 resources/niri-session /usr/local/bin/niri-session
+    sudo install -Dm644 resources/niri-portals.conf /usr/share/xdg-desktop-portal/portals/niri-portals.conf
+
+    cd "$ORIG_PWD"
+    verify_installed niri "Niri"
+}
+
+# Build and install the Noctalia shell from source
+build_noctalia() {
+    echo "Building and installing Noctalia from source..."
+
+    cd "$TEMP_DIR"
+    clone_repo https://github.com/noctalia-dev/noctalia.git noctalia
+    cd noctalia
+
+    just configure release
+    just build release
+    sudo env PATH="$PATH" just install release
+
+    cd "$ORIG_PWD"
+    verify_installed noctalia "Noctalia"
+}
+
+# Build and install the Noctalia Greeter from source and configure greetd
+build_noctalia_greeter() {
+    require_wlroots_dev
+
+    echo "Building and installing Noctalia Greeter from source..."
+
+    cd "$TEMP_DIR"
+    clone_repo https://github.com/noctalia-dev/noctalia-greeter.git noctalia-greeter
+    cd noctalia-greeter
+
+    just configure-release
+    just build-release
+    sudo meson install -C build-release
+    sudo ./scripts/setup_greeter_system.sh
+
+    cd "$ORIG_PWD"
+    echo "Noctalia Greeter installed successfully!"
+}
+
+# Dispatch a component name to its build+install routine
+build_component() {
+    case "$1" in
+        niri)     build_niri ;;
+        noctalia) build_noctalia ;;
+        greeter)  build_noctalia_greeter ;;
+        *)
+            echo "Error: unknown component '$1'"
+            return 1
+            ;;
+    esac
+}
+
+# Install a package, preferring the Debian repository and falling back to the
+# pool .deb when the release is too old to carry it
+install_pool_deb() {
+    local pkg="$1" pool="https://ftp.debian.org/debian/pool/main/libd/libdisplay-info/"
+    local arch listing url deb
+
+    if sudo apt-get install -y --no-install-recommends "$pkg" 2>/dev/null; then
+        echo "$pkg installed from the Debian repositories"
+        return 0
+    fi
+
+    echo "Warning: $pkg is not available via apt, downloading the .deb directly..."
+    arch="$(dpkg --print-architecture 2>/dev/null | tr -d '[:space:]')"
+    if [ -z "$arch" ]; then
+        echo "Error: could not determine the system architecture via dpkg"
+        return 1
+    fi
+    listing="$(wget -qO- "$pool" 2>/dev/null || true)"
+    url="$(printf '%s' "$listing" | grep -oE "${pkg}_[^\"]*_${arch}\.deb" | sort -V | tail -1 || true)"
+
+    if [ -z "$url" ]; then
+        echo "Error: no ${pkg}_*_${arch}.deb found at $pool"
+        return 1
+    fi
+
+    deb="$(mktemp)"; register_temp "$deb"
+    wget --progress=bar:force -O "$deb" "${pool}${url}"
+    sudo dpkg -i "$deb"
+    echo "$pkg installed successfully"
 }
 
 # Detect Debian version and set wlroots variables
@@ -265,113 +450,23 @@ if [ -n "$UPGRADE_MODE" ]; then
     echo ""
 
     # Ensure cargo/just are in PATH
-    if [ -f "$HOME/.cargo/env" ]; then
-        source "$HOME/.cargo/env"
-    fi
+    source_cargo_env
+
+    TEMP_DIR="$(mktemp -d)"; register_temp "$TEMP_DIR"
 
     case "$UPGRADE_MODE" in
-        niri)
-            echo "Upgrading Niri (building from source)..."
-            TEMP_DIR=$(mktemp -d)
-            cd "$TEMP_DIR"
-            git clone --depth=1 https://github.com/YaLTeR/niri.git
-            cd niri
-            cargo build --release
-            sudo install -Dm755 target/release/niri /usr/local/bin/niri
-            sudo install -Dm644 resources/niri-session /usr/local/bin/niri-session
-            sudo install -Dm644 resources/niri-portals.conf /usr/share/xdg-desktop-portal/portals/niri-portals.conf
-            cd ~
-            rm -rf "$TEMP_DIR"
-            echo "Niri upgrade complete!"
-            ;;
-        noctalia)
-            echo "Upgrading Noctalia..."
-            TEMP_DIR=$(mktemp -d)
-            cd "$TEMP_DIR"
-            git clone --depth=1 https://github.com/noctalia-dev/noctalia.git
-            cd noctalia
-            just configure release
-            just build release
-            sudo env PATH="$PATH" just install release
-            cd ~
-            rm -rf "$TEMP_DIR"
-            echo "Noctalia upgrade complete!"
-            ;;
-        greeter)
-            echo "Upgrading Noctalia Greeter..."
-
-            if ! pkg-config --exists wlroots-${WLROOTS_VERSION}; then
-                echo ""
-                echo "Error: wlroots-${WLROOTS_VERSION} development files not found."
-                echo "Run: sudo apt install libwlroots-${WLROOTS_VERSION}-dev"
-                exit 1
-            fi
-
-            TEMP_DIR=$(mktemp -d)
-            cd "$TEMP_DIR"
-            git clone --depth=1 https://github.com/noctalia-dev/noctalia-greeter.git
-            cd noctalia-greeter
-            just configure-release
-            just build-release
-            sudo meson install -C build-release
-            sudo ./scripts/setup_greeter_system.sh
-            cd ~
-            rm -rf "$TEMP_DIR"
-            echo "Noctalia Greeter upgrade complete!"
+        niri|noctalia|greeter)
+            build_component "$UPGRADE_MODE"
             ;;
         all)
-            echo "Upgrading all components (Niri + Noctalia + Greeter)..."
-            echo ""
-
-            echo "[1/3] Upgrading Niri (building from source)..."
-            TEMP_DIR=$(mktemp -d)
-            cd "$TEMP_DIR"
-            git clone --depth=1 https://github.com/YaLTeR/niri.git
-            cd niri
-            cargo build --release
-            sudo install -Dm755 target/release/niri /usr/local/bin/niri
-            sudo install -Dm644 resources/niri-session /usr/local/bin/niri-session
-            sudo install -Dm644 resources/niri-portals.conf /usr/share/xdg-desktop-portal/portals/niri-portals.conf
-            cd ~
-            rm -rf "$TEMP_DIR"
-            echo "Niri upgrade complete!"
-            echo ""
-
-            echo "[2/3] Upgrading Noctalia..."
-            TEMP_DIR=$(mktemp -d)
-            cd "$TEMP_DIR"
-            git clone --depth=1 https://github.com/noctalia-dev/noctalia.git
-            cd noctalia
-            just configure release
-            just build release
-            sudo env PATH="$PATH" just install release
-            cd ~
-            rm -rf "$TEMP_DIR"
-            echo "Noctalia upgrade complete!"
-            echo ""
-
-            echo "[3/3] Upgrading Noctalia Greeter..."
-
-            if ! pkg-config --exists wlroots-${WLROOTS_VERSION}; then
+            step=0
+            for component in niri noctalia greeter; do
+                step=$((step + 1))
                 echo ""
-                echo "Error: wlroots-${WLROOTS_VERSION} development files not found."
-                echo "Run: sudo apt install libwlroots-${WLROOTS_VERSION}-dev"
-                exit 1
-            fi
-
-            TEMP_DIR=$(mktemp -d)
-            cd "$TEMP_DIR"
-            git clone --depth=1 https://github.com/noctalia-dev/noctalia-greeter.git
-            cd noctalia-greeter
-            just configure-release
-            just build-release
-            sudo meson install -C build-release
-            sudo ./scripts/setup_greeter_system.sh
-            cd ~
-            rm -rf "$TEMP_DIR"
-            echo "Noctalia Greeter upgrade complete!"
+                echo "[$step/3] Upgrading $component..."
+                build_component "$component"
+            done
             echo ""
-
             echo "All components upgraded successfully!"
             ;;
         *)
@@ -395,13 +490,11 @@ if [ "$ASK_STEP" = true ]; then
     echo "Running in interactive mode (--ask-step)"
 fi
 
-# Create temporary directory for builds
-TEMP_DIR=$(mktemp -d)
+# Create temporary directory for builds (removed automatically on exit)
+TEMP_DIR="$(mktemp -d)"; register_temp "$TEMP_DIR"
 
 # Ensure cargo/just are in PATH if already installed
-if [ -f "$HOME/.cargo/env" ]; then
-    source "$HOME/.cargo/env"
-fi
+source_cargo_env
 
 # Update package list and install dependencies
 if [ "$INSTALL_DEPS" = true ]; then
@@ -424,7 +517,8 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Rus
 	librsvg2-dev libxkbcommon-dev libglib2.0-dev libtomlplusplus-dev \
 	libcurl4-gnutls-dev libqalculate-dev libxml2-dev libwebp-dev libepoxy-dev \
 	alacritty fuzzel waybar xdg-desktop-portal-gtk xwayland \
-        libsecret-1-dev libsodium-dev libstb-dev nwg-look greetd
+        libsecret-1-dev libsodium-dev libstb-dev nwg-look greetd \
+        wget python3
 
     sudo systemctl enable greetd
 
@@ -432,43 +526,20 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Rus
     if [ "$NEED_XML_CURL" = true ]; then
         echo "Downloading ext-background-effect protocol XML..."
         sudo mkdir -p /usr/share/wayland-protocols/staging/ext-background-effect
-        sudo curl -L 'https://gitlab.freedesktop.org/wayland/wayland-protocols/-/raw/main/staging/ext-background-effect/ext-background-effect-v1.xml?inline=false' -o /usr/share/wayland-protocols/staging/ext-background-effect/ext-background-effect-v1.xml
+        sudo curl -fL --retry 3 'https://gitlab.freedesktop.org/wayland/wayland-protocols/-/raw/main/staging/ext-background-effect/ext-background-effect-v1.xml?inline=false' -o /usr/share/wayland-protocols/staging/ext-background-effect/ext-background-effect-v1.xml
     fi
 
-    # Download and install libdisplay-info3 and libdisplay-info-dev (latest versions)
-    echo "Downloading and installing libdisplay-info3 and libdisplay-info-dev..."
-    LIBDISPLAY_POOL="http://ftp.debian.org/debian/pool/main/libd/libdisplay-info/"
-    LIBDISPLAY_LISTING=$(wget -qO- "$LIBDISPLAY_POOL")
-
-    LIBDISPLAY_URL=$(echo "$LIBDISPLAY_LISTING" | grep -oP 'libdisplay-info3_[^"]+_amd64\.deb' | sort -V | tail -1)
-    if [ -n "$LIBDISPLAY_URL" ]; then
-        TEMP_DEB=$(mktemp)
-        wget -O "$TEMP_DEB" "${LIBDISPLAY_POOL}${LIBDISPLAY_URL}"
-        sudo dpkg -i "$TEMP_DEB"
-        rm "$TEMP_DEB"
-        echo "libdisplay-info3 installed successfully"
-    else
-        echo "Warning: Could not find libdisplay-info3 package, trying apt install..."
-        sudo apt install -y --no-install-recommends libdisplay-info3 || echo "Failed to install libdisplay-info3"
-    fi
-
-    LIBDISPLAY_DEV_URL=$(echo "$LIBDISPLAY_LISTING" | grep -oP 'libdisplay-info-dev_[^"]+_amd64\.deb' | sort -V | tail -1)
-    if [ -n "$LIBDISPLAY_DEV_URL" ]; then
-        TEMP_DEB=$(mktemp)
-        wget -O "$TEMP_DEB" "${LIBDISPLAY_POOL}${LIBDISPLAY_DEV_URL}"
-        sudo dpkg -i "$TEMP_DEB"
-        rm "$TEMP_DEB"
-        echo "libdisplay-info-dev installed successfully"
-    else
-        echo "Warning: Could not find libdisplay-info-dev package, trying apt install..."
-        sudo apt install -y --no-install-recommends libdisplay-info-dev || echo "Failed to install libdisplay-info-dev"
-    fi
+    # Install libdisplay-info3 and libdisplay-info-dev (needed by Niri). Debian
+    # often ships versions too old for Niri, so fall back to the pool .deb.
+    echo "Installing libdisplay-info3 and libdisplay-info-dev..."
+    install_pool_deb libdisplay-info3
+    install_pool_deb libdisplay-info-dev
 
     # Install Rust toolchain
     echo "Installing Rust toolchain..."
     if ! command -v rustc &> /dev/null; then
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
-        source "$HOME/.cargo/env"
+        source_cargo_env
         echo "Rust toolchain installed successfully"
     else
         echo "Rust already installed, updating..."
@@ -477,9 +548,13 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Rus
     fi
 
     # Install just (build tool required by Noctalia)
-    echo "Installing just..."
-    cargo install just
-    echo "just installed successfully"
+    if command -v just &> /dev/null; then
+        echo "just already installed ($(just --version))"
+    else
+        echo "Installing just..."
+        cargo install just
+        echo "just installed successfully"
+    fi
 
     echo "System dependencies installed successfully!"
 fi
@@ -490,39 +565,10 @@ if [ "$INSTALL_NIRI" = true ]; then
     echo "[2/4] Niri compositor"
 fi
 if [ "$INSTALL_NIRI" = true ] && ask_skip "Niri compositor (build from source)"; then
-    echo "Building and installing Niri from source..."
-
     # Ensure Rust is in PATH
-    if [ -f "$HOME/.cargo/env" ]; then
-        source "$HOME/.cargo/env"
-    fi
+    source_cargo_env
 
-    cd "$TEMP_DIR"
-    git clone --depth=1 https://github.com/YaLTeR/niri.git
-    cd niri
-
-    echo "Building Niri (this may take several minutes)..."
-    cargo build --release
-
-    echo "Installing Niri..."
-    sudo install -Dm755 target/release/niri /usr/local/bin/niri
-    sudo install -Dm644 resources/niri-session /usr/local/bin/niri-session
-    sudo install -Dm644 resources/niri-portals.conf /usr/share/xdg-desktop-portal/portals/niri-portals.conf
-
-    # Verify installation
-    if command -v niri &> /dev/null; then
-        echo "Niri installed successfully → /usr/local/bin/niri"
-        niri --version
-    else
-        echo "Error: Niri installation failed"
-        exit 1
-    fi
-
-    echo ""
-    echo "Applying the standard niri config"
-    mkdir -p ~/.config/niri
-    cp "$SCRIPT_DIR/config.kdl" ~/.config/niri/config.kdl
-    echo "File config.kdl copied into ~/.config/niri "
+    build_niri
 fi
 
 # Install Noctalia
@@ -531,24 +577,7 @@ if [ "$INSTALL_NOCTALIA" = true ]; then
     echo "[3/4] Noctalia"
 fi
 if [ "$INSTALL_NOCTALIA" = true ] && ask_skip "Noctalia"; then
-    echo "Building and installing Noctalia from source..."
-
-    cd "$TEMP_DIR"
-    git clone --depth=1 https://github.com/noctalia-dev/noctalia.git
-    cd noctalia
-
-    just configure release
-    just build release
-    sudo env PATH="$PATH" just install release
-
-    # Verify installation
-    if command -v noctalia &> /dev/null; then
-        echo "Noctalia installed successfully!"
-        noctalia --version
-    else
-        echo "Error: Noctalia installation failed"
-        exit 1
-    fi
+    build_noctalia
 fi
 
 # Install Noctalia Greeter
@@ -557,42 +586,25 @@ if [ "$INSTALL_NOCTALIA_GREETER" = true ]; then
     echo "[4/4] Noctalia Greeter"
 fi
 if [ "$INSTALL_NOCTALIA_GREETER" = true ] && ask_skip "Noctalia Greeter"; then
-    if ! pkg-config --exists wlroots-${WLROOTS_VERSION}; then
-        echo ""
-        echo "Error: wlroots-${WLROOTS_VERSION} development files not found."
-        echo "Run step [1] first to install system dependencies,"
-        echo "or install manually: sudo apt install libwlroots-${WLROOTS_VERSION}-dev"
-        exit 1
-    fi
-
-    echo "Building and installing Noctalia Greeter from source..."
-
-    cd "$TEMP_DIR"
-    git clone --depth=1 https://github.com/noctalia-dev/noctalia-greeter.git
-    cd noctalia-greeter
-
-    just configure-release
-    just build-release
-    sudo meson install -C build-release
-    sudo ./scripts/setup_greeter_system.sh
-
-    echo "Noctalia Greeter installed successfully!"
+    build_noctalia_greeter
 fi
 
-# Cleanup
-if [ -n "$TEMP_DIR" ] && [ -d "$TEMP_DIR" ]; then
-    rm -rf "$TEMP_DIR"
-fi
+# Return to the directory the script was started from
+cd "$ORIG_PWD"
 
 # Apply niri configuration (only if niri was installed)
 if [ "$INSTALL_NIRI" = true ]; then
     echo ""
     if [ -f "$SCRIPT_DIR/config.kdl" ]; then
-        read -p "Do you want to apply the niri configuration (config.kdl)? (Y/n): " config_response
+        read -r -p "Do you want to apply the niri configuration (config.kdl)? (Y/n): " config_response || true
         config_response=${config_response:-Y}
         if [[ "$config_response" =~ ^[Yy]$ ]]; then
-            mkdir -p ~/.config/niri
-            cp "$SCRIPT_DIR/config.kdl" ~/.config/niri/config.kdl
+            if [ -f "$HOME/.config/niri/config.kdl" ]; then
+                cp "$HOME/.config/niri/config.kdl" "$HOME/.config/niri/config.kdl.backup"
+                echo "Existing config backed up to ~/.config/niri/config.kdl.backup"
+            fi
+            mkdir -p "$HOME/.config/niri"
+            cp "$SCRIPT_DIR/config.kdl" "$HOME/.config/niri/config.kdl"
             echo "Niri configuration applied to ~/.config/niri/config.kdl"
         else
             echo "Skipping niri configuration..."
@@ -609,9 +621,9 @@ if [ "$REMOVE_GNOME" = true ]; then
     echo "This will remove your desktop environment."
     echo "After removal, the system will boot to console mode."
     echo ""
-    read -p "Type 'yes' to confirm removal: " confirm
+    read -r -p "Type 'yes' to confirm removal: " confirm || true
 
-    if [ "$confirm" = "yes" ]; then
+    if [ "${confirm:-}" = "yes" ]; then
         echo "Stopping GDM3..."
         sudo systemctl stop gdm3 || true
 
@@ -641,30 +653,38 @@ if [ "$INSTALL_VSCODE" = true ]; then
 
     sudo apt install -y --no-install-recommends wget gpg apt-transport-https
 
-    wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > "$SCRIPT_DIR/packages.microsoft.gpg"
-    sudo install -D -o root -g root -m 644 "$SCRIPT_DIR/packages.microsoft.gpg" /etc/apt/keyrings/packages.microsoft.gpg
+    # The key lands in a temp file (not next to the script) so an interrupted run
+    # cannot leave a stray .gpg in the repository.
+    VSCODE_KEY="$(mktemp)"; register_temp "$VSCODE_KEY"
+    curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > "$VSCODE_KEY"
+    sudo install -D -o root -g root -m 644 "$VSCODE_KEY" /etc/apt/keyrings/packages.microsoft.gpg
     echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list > /dev/null
-    rm -f "$SCRIPT_DIR/packages.microsoft.gpg"
 
     sudo apt update
     sudo apt install -y --no-install-recommends code
 
     # Copy desktop file and add Wayland flag
-    mkdir -p ~/.local/share/applications
-    cp /usr/share/applications/code.desktop ~/.local/share/applications/
-    sed -i 's/^Exec=\/usr\/share\/code\/code/Exec=\/usr\/share\/code\/code --enable-features=UseOzonePlatform --ozone-platform=wayland/' ~/.local/share/applications/code.desktop
+    mkdir -p "$HOME/.local/share/applications"
+    if [ ! -f /usr/share/applications/code.desktop ]; then
+        echo "Warning: /usr/share/applications/code.desktop not found;"
+        echo "         skipping the Wayland desktop entry (the shell alias below still works)"
+    else
+        if [ ! -f "$HOME/.local/share/applications/code.desktop" ]; then
+            cp /usr/share/applications/code.desktop "$HOME/.local/share/applications/code.desktop"
+        fi
+        sed -i 's|^Exec=/usr/share/code/code$|Exec=/usr/share/code/code --enable-features=UseOzonePlatform --ozone-platform=wayland|' "$HOME/.local/share/applications/code.desktop"
+        if ! grep -q "ozone-platform=wayland" "$HOME/.local/share/applications/code.desktop"; then
+            echo "Warning: could not patch code.desktop for Wayland; the shell alias below still works"
+        fi
+    fi
 
     # Add shell alias
-    if [ -f ~/.bashrc ]; then
-        if ! grep -q "alias code=" ~/.bashrc; then
-            echo "alias code='code --enable-features=UseOzonePlatform --ozone-platform=wayland'" >> ~/.bashrc
+    for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+        [ -f "$rc" ] || continue
+        if ! grep -q "alias code=" "$rc"; then
+            echo "alias code='code --enable-features=UseOzonePlatform --ozone-platform=wayland'" >> "$rc"
         fi
-    fi
-    if [ -f ~/.zshrc ]; then
-        if ! grep -q "alias code=" ~/.zshrc; then
-            echo "alias code='code --enable-features=UseOzonePlatform --ozone-platform=wayland'" >> ~/.zshrc
-        fi
-    fi
+    done
 
     echo "Visual Studio Code installed with Wayland support!"
 fi
@@ -679,10 +699,10 @@ if [ "$INSTALL_OMZ" = true ]; then
     sudo apt install -y --no-install-recommends zsh
 
     # Change default shell
-    read -p "Do you want to change your default shell to zsh? (Y/n): " zsh_response
+    read -r -p "Do you want to change your default shell to zsh? (Y/n): " zsh_response || true
     zsh_response=${zsh_response:-Y}
     if [[ "$zsh_response" =~ ^[Yy]$ ]]; then
-        chsh -s $(which zsh)
+        chsh -s "$(command -v zsh)"
         echo "Default shell changed to zsh (will take effect on next login)"
     fi
 
@@ -730,19 +750,22 @@ if [ "$APPLY_FIXES" = true ]; then
         firmware-linux firmware-iwlwifi firmware-realtek \
         wlsunset nwg-look
 
-    # Add user to groups
-    sudo usermod -aG netdev,bluetooth,video "$USER"
-    echo "Added $USER to groups: netdev, bluetooth, video"
+    # Add user to groups (SUDO_USER when run via sudo, so the real user gets access)
+    TARGET_USER="${SUDO_USER:-${USER:-$(id -un)}}"
+    sudo usermod -aG netdev,bluetooth,video "$TARGET_USER"
+    echo "Added $TARGET_USER to groups: netdev, bluetooth, video"
 
     # Update NetworkManager configuration
     echo "Configuring NetworkManager..."
     sudo mkdir -p /etc/NetworkManager/conf.d/
-    echo -e "[main]\nplugins=ifupdown,keyfile\n\n[ifupdown]\nmanaged=true" | sudo tee /etc/NetworkManager/conf.d/10-globally-managed-devices.conf > /dev/null
+    printf '[main]\nplugins=ifupdown,keyfile\n\n[ifupdown]\nmanaged=true\n' \
+        | sudo tee /etc/NetworkManager/conf.d/10-globally-managed-devices.conf > /dev/null
 
-    # Comment out wlan0 in /etc/network/interfaces
-    if [ -f /etc/network/interfaces ]; then
+    # Comment out wlan0 in /etc/network/interfaces (only active stanzas, so
+    # re-running does not stack comments on an already-commented line)
+    if [ -f /etc/network/interfaces ] && grep -qE '^[[:space:]]*wlan0' /etc/network/interfaces; then
         sudo cp /etc/network/interfaces /etc/network/interfaces.backup
-        sudo sed -i '/wlan0/s/^/# /' /etc/network/interfaces
+        sudo sed -i -E 's/^([[:space:]]*wlan0)/# \1/' /etc/network/interfaces
         echo "Backed up and updated /etc/network/interfaces"
     fi
 
@@ -761,10 +784,11 @@ if [ "$INSTALL_WALLPAPER" = true ]; then
     echo "================================================"
 
     # Create wallpaper script
-    mkdir -p ~/.local/bin
-    cat > ~/.local/bin/noctalia-random-wallpaper.sh << 'WALLPAPER_EOF'
+    mkdir -p "$HOME/.local/bin"
+    cat > "$HOME/.local/bin/noctalia-random-wallpaper.sh" << 'WALLPAPER_EOF'
 #!/bin/bash
 # Random wallpaper changer for Noctalia
+set -euo pipefail
 WALLPAPER_DIR="$HOME/Pictures/Wallpapers"
 if [ ! -d "$WALLPAPER_DIR" ]; then
     echo "Wallpaper directory not found: $WALLPAPER_DIR"
@@ -781,11 +805,11 @@ else
 fi
 WALLPAPER_EOF
 
-    chmod +x ~/.local/bin/noctalia-random-wallpaper.sh
+    chmod +x "$HOME/.local/bin/noctalia-random-wallpaper.sh"
 
     # Create systemd service
-    mkdir -p ~/.config/systemd/user
-    cat > ~/.config/systemd/user/noctalia-wallpaper.service << 'SERVICE_EOF'
+    mkdir -p "$HOME/.config/systemd/user"
+    cat > "$HOME/.config/systemd/user/noctalia-wallpaper.service" << 'SERVICE_EOF'
 [Unit]
 Description=Noctalia Random Wallpaper Changer
 After=graphical-session.target
@@ -799,7 +823,7 @@ WantedBy=default.target
 SERVICE_EOF
 
     # Create systemd timer
-    cat > ~/.config/systemd/user/noctalia-wallpaper.timer << 'TIMER_EOF'
+    cat > "$HOME/.config/systemd/user/noctalia-wallpaper.timer" << 'TIMER_EOF'
 [Unit]
 Description=Change Noctalia wallpaper every 30 minutes
 Requires=noctalia-wallpaper.service
@@ -830,17 +854,18 @@ if [ "$INSTALL_DESKTOP_ENTRY" = true ]; then
     echo "================================================"
     echo "Installing Wayland Session Desktop Entry"
     echo "================================================"
-    
-    # Create the desktop entry file
+
+    # /usr/share/wayland-sessions does not exist on minimal installs
+    sudo mkdir -p /usr/share/wayland-sessions
     sudo tee /usr/share/wayland-sessions/niri.desktop > /dev/null << 'DESKTOP_EOF'
 [Desktop Entry]
 Name=Niri
 Comment=A scrollable-tiling Wayland compositor
-Exec=niri
+Exec=/usr/local/bin/niri
 Type=Application
 DesktopNames=niri
 DESKTOP_EOF
-    
+
     echo "Wayland session desktop entry installed!"
     echo "Location: /usr/share/wayland-sessions/niri.desktop"
     echo ""
@@ -855,14 +880,22 @@ if [ "$INSTALL_YAZI" = true ]; then
     echo "================================================"
 
     echo "Installing yazi prerequisites..."
-    sudo apt install -y --no-install-recommends ffmpeg 7zip jq poppler-utils fd-find ripgrep fzf zoxide imagemagick
+    sudo apt install -y --no-install-recommends ffmpeg jq poppler-utils fd-find ripgrep fzf zoxide imagemagick
+    # Debian renamed the 7-Zip package; try the new name first, fall back to the old one
+    sudo apt install -y --no-install-recommends 7zip || \
+        sudo apt install -y --no-install-recommends p7zip-full
 
-    # Ensure Rust is in PATH
-    if [ -f "$HOME/.cargo/env" ]; then
-        source "$HOME/.cargo/env"
+    # fd-find ships the binary as `fdfind` on Debian to avoid clashing with another fd
+    if ! command -v fd &> /dev/null && command -v fdfind &> /dev/null; then
+        mkdir -p "$HOME/.local/bin"
+        ln -sf "$(command -v fdfind)" "$HOME/.local/bin/fd"
+        echo "Linked fd → fdfind in ~/.local/bin"
     fi
 
-    YAZI_TEMP=$(mktemp -d)
+    # Ensure Rust is in PATH
+    source_cargo_env
+
+    YAZI_TEMP="$(mktemp -d)"; register_temp "$YAZI_TEMP"
     git clone --depth=1 https://github.com/sxyazi/yazi.git "$YAZI_TEMP/yazi"
     cd "$YAZI_TEMP/yazi"
 
@@ -872,16 +905,8 @@ if [ "$INSTALL_YAZI" = true ]; then
     sudo install -Dm755 target/release/yazi /usr/local/bin/yazi
     sudo install -Dm755 target/release/ya /usr/local/bin/ya
 
-    cd ~
-    rm -rf "$YAZI_TEMP"
-
-    if command -v yazi &> /dev/null; then
-        echo "Yazi installed successfully → /usr/local/bin/yazi"
-        yazi --version
-    else
-        echo "Error: Yazi installation failed"
-        exit 1
-    fi
+    cd "$ORIG_PWD"
+    verify_installed yazi "Yazi"
 fi
 
 # Optional: Install 0xProto Nerd Font
@@ -898,10 +923,9 @@ if [ "$INSTALL_FONT" = true ]; then
     sudo apt install -y --no-install-recommends unzip
 
     echo "Downloading 0xProto Nerd Font..."
-    FONT_TMP=$(mktemp -d)
-    wget -O "$FONT_TMP/0xProto.zip" "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/0xProto.zip"
+    FONT_TMP="$(mktemp -d)"; register_temp "$FONT_TMP"
+    wget --progress=bar:force -O "$FONT_TMP/0xProto.zip" "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/0xProto.zip"
     unzip -o "$FONT_TMP/0xProto.zip" "*.ttf" -d "$FONT_DIR"
-    rm -rf "$FONT_TMP"
 
     echo "Rebuilding font cache..."
     fc-cache -fv
@@ -910,37 +934,51 @@ if [ "$INSTALL_FONT" = true ]; then
     ALACRITTY_CONF="$HOME/.config/alacritty/alacritty.toml"
     mkdir -p "$HOME/.config/alacritty"
     if [ -f "$ALACRITTY_CONF" ]; then
-        # Remove any existing [font] section and its keys
+        cp "$ALACRITTY_CONF" "$ALACRITTY_CONF.backup"
+        echo "Existing alacritty.toml backed up to $ALACRITTY_CONF.backup"
+        # Drop every existing font table. This has to be done line by line
+        # because [font] is followed by subsections such as [font.normal]:
+        # a plain "[font] up to the next [" match leaves those subsections
+        # behind, orphaning them on re-runs.
         python3 - "$ALACRITTY_CONF" <<'PYEOF'
 import re, sys
+
 path = sys.argv[1]
-with open(path, 'r') as f:
-    content = f.read()
-# Remove existing [font] section (section ends at next [header] or EOF)
-content = re.sub(r'\[font\][^\[]*', '', content, flags=re.DOTALL)
-content = content.rstrip() + '\n'
+with open(path) as f:
+    lines = f.read().splitlines(keepends=True)
+
+header = re.compile(r'^[ \t]*\[([^]]+)\][ \t]*$')
+
+kept = []
+skipping = False
+for line in lines:
+    match = header.match(line.rstrip('\n'))
+    if match:
+        table = match.group(1).strip()
+        # Start skipping at [font] or any [font.*] table, resume at the next
+        # header that is not a font table
+        skipping = table == 'font' or table.startswith('font.')
+    if not skipping:
+        kept.append(line)
+
 with open(path, 'w') as f:
-    f.write(content)
+    content = ''.join(kept).strip('\n')
+    if content:
+        f.write(content + '\n')
 PYEOF
-        cat >> "$ALACRITTY_CONF" << 'FONT_EOF'
-
-[font]
-size = 10.0
-
-[font.normal]
-family = "0xProto Nerd Font Mono"
-style = "Regular"
-FONT_EOF
-    else
-        cat > "$ALACRITTY_CONF" << 'FONT_EOF'
-[font]
-size = 10.0
-
-[font.normal]
-family = "0xProto Nerd Font Mono"
-style = "Regular"
-FONT_EOF
     fi
+
+    # Appended in both cases: a missing file is created, an existing one has had
+    # its old font tables stripped above
+    cat >> "$ALACRITTY_CONF" << 'FONT_EOF'
+
+[font]
+size = 10.0
+
+[font.normal]
+family = "0xProto Nerd Font Mono"
+style = "Regular"
+FONT_EOF
 
     echo "0xProto Nerd Font installed and applied to alacritty!"
     echo "Font location: $FONT_DIR"
@@ -954,22 +992,31 @@ if [ "$INSTALL_NVIM" = true ]; then
     echo "Installing Neovim with lazy.nvim and oil.nvim"
     echo "================================================"
 
-    echo "Downloading latest stable Neovim..."
-    NVIM_TMP=$(mktemp -d)
-    wget -O "$NVIM_TMP/nvim.tar.gz" "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz"
-    sudo tar -C /usr/local -xzf "$NVIM_TMP/nvim.tar.gz" --strip-components=1
-    rm -rf "$NVIM_TMP"
+    # Map the host CPU to the Neovim release asset name
+    case "$(uname -m)" in
+        x86_64)  NVIM_ARCH="x86_64" ;;
+        aarch64|arm64) NVIM_ARCH="arm64" ;;
+        *)
+            echo "Error: unsupported architecture $(uname -m) for the Neovim release tarball"
+            exit 1
+            ;;
+    esac
 
-    if ! command -v nvim &> /dev/null; then
-        echo "Error: Neovim installation failed"
-        exit 1
-    fi
-    echo "Neovim installed → $(command -v nvim)"
-    nvim --version | head -1
+    echo "Downloading latest stable Neovim ($NVIM_ARCH)..."
+    NVIM_TMP="$(mktemp -d)"; register_temp "$NVIM_TMP"
+    wget --progress=bar:force -O "$NVIM_TMP/nvim.tar.gz" "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-${NVIM_ARCH}.tar.gz"
+    sudo tar -C /usr/local -xzf "$NVIM_TMP/nvim.tar.gz" --strip-components=1
+
+    verify_installed nvim "Neovim"
 
     echo "Creating Neovim configuration with lazy.nvim and oil.nvim..."
+    NVIM_INIT="$HOME/.config/nvim/init.lua"
     mkdir -p "$HOME/.config/nvim"
-    cat > "$HOME/.config/nvim/init.lua" << 'NVIM_EOF'
+    if [ -f "$NVIM_INIT" ]; then
+        cp "$NVIM_INIT" "$NVIM_INIT.backup"
+        echo "Existing init.lua backed up to $NVIM_INIT.backup"
+    fi
+    cat > "$NVIM_INIT" << 'NVIM_EOF'
 -- Bootstrap lazy.nvim
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not (vim.uv or vim.loop).fs_stat(lazypath) then

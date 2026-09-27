@@ -1,5 +1,9 @@
 #!/bin/bash
 # Tests that install.sh contains greeter-specific code paths
+#
+# Single quotes are deliberate throughout: the patterns are matched literally
+# against the install.sh source and must not be expanded by the shell.
+# shellcheck disable=SC2016
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

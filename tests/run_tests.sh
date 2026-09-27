@@ -22,6 +22,9 @@ run_test "$SCRIPT_DIR/test_help_output.sh"
 run_test "$SCRIPT_DIR/test_menu_source.sh"
 run_test "$SCRIPT_DIR/test_greeter_source.sh"
 run_test "$SCRIPT_DIR/test_debian_detection.sh"
+run_test "$SCRIPT_DIR/test_shellcheck.sh"
+run_test "$SCRIPT_DIR/test_sandbox_run.sh"
+run_test "$SCRIPT_DIR/test_idempotency.sh"
 
 echo "================================================"
 if [ "$any_failed" = true ]; then
