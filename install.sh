@@ -285,7 +285,8 @@ detect_wlroots_version() {
         # shellcheck disable=SC1090
         version_codename=$( . "$os_release_file" >/dev/null 2>&1 && printf '%s' "${VERSION_CODENAME:-}" )
     fi
-    if [ "$version_codename" = "trixie" ]; then
+    if [ "$version_codename" = "trixie" ] || [ "$version_codename" = "gigi" ]; then
+        # LMDE 7 (gigi) is based on Trixie, so it uses wlroots 0.18 too
         WLROOTS_VERSION="0.18"
         NEED_XML_CURL=true
     else
