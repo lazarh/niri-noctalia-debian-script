@@ -144,6 +144,13 @@ Installs all required build tools and libraries:
 - Display info library (libdisplay-info, for Niri) — taken from apt when the
   release carries a new enough version, otherwise the newest `.deb` is fetched
   from the Debian pool for the detected architecture
+- **wlroots 0.20** (required by Noctalia Greeter) — installed from apt when the
+  release provides it. Debian 13 ships only wlroots 0.18 and is too old to
+  satisfy 0.20, so on that release the script prints the commands to install it
+  from Debian's forky release instead of changing anything itself. See
+  [wlroots-0.20 on Debian 13](#wlroots-020-on-debian-13)
+- **clang** and **libclang-dev** — Niri's build runs `bindgen`, which needs
+  `libclang.so`; without these the Rust build fails on a missing library
 - Wayland desktop tools (alacritty, fuzzel, waybar, xdg-desktop-portal-gtk, xwayland, nwg-look)
 - Supporting tools used by later steps (`wget`, `python3`)
 - **Rust toolchain** (installed via rustup if not already present)
@@ -328,6 +335,30 @@ If you have a display manager (GDM, SDDM, LightDM, etc.) and want to select Niri
 
 **Note**: The desktop entry is **not installed by default**. It's only needed if you're using a display manager and want Niri as a selectable session option.
 
+## wlroots-0.20 on Debian 13
+
+Noctalia Greeter is built against **wlroots 0.20**, which upstream pins in its
+`meson.build`. Debian 13 (Trixie) ships wlroots **0.18**, so the greeter cannot
+be built against the release's own package — this is why it fails with
+`Dependency "wlroots-0.20" not found`.
+
+The script cannot install this for you: Debian 13's libraries are too old to
+satisfy wlroots 0.20, so it has to come from a newer release, and adding a
+repository is a system-wide decision. Step 1 tries apt and, when the release
+lacks the package, **prints the exact commands** to add Debian's forky release
+with a low priority pin and install from it. Nothing is changed automatically.
+
+wlroots 0.20 installs alongside the release's own wlroots 0.18 without conflict —
+the two use different sonames and different include directories, so 0.18 stays
+intact.
+
+For the manual commands and the reasoning, see
+[`Dependency "wlroots-0.20" not found`](#dependency-wlroots-020-not-found-or-wlroots-020-development-files-not-found)
+in Troubleshooting.
+
+Niri and Noctalia do **not** need wlroots — if you would rather not install it,
+run the individual steps (`./install.sh --install-niri`) and skip the greeter.
+
 ## Dependencies Installed
 
 ### Build Tools
@@ -339,9 +370,9 @@ If you have a display manager (GDM, SDDM, LightDM, etc.) and want to select Niri
 
 ### System Libraries
 - libwayland-dev, wayland-protocols, libegl1-mesa-dev
-- libwlroots-0.18-dev on Debian 13 "Trixie", libwlroots-0.20-dev elsewhere
-  (wlroots compositor libraries, for Noctalia Greeter — the version is derived
-  from `VERSION_CODENAME` in `/etc/os-release`)
+- libwlroots-0.20-dev (wlroots compositor libraries, for Noctalia Greeter —
+  pinned to 0.20 because upstream's `meson.build` requires exactly that; needs
+  a newer Debian release than 13 to be installed from)
 - libsdbus-c++-dev (D-Bus IPC)
 - libpipewire-0.3-dev (audio)
 - libpolkit-agent-1-dev, libpam0g-dev (authentication)
@@ -401,10 +432,70 @@ source ~/.cargo/env
 ### Noctalia build fails with missing dependency
 Run the system dependencies step first (`[1]` in the menu or `./install.sh` default) to ensure all build libraries are installed.
 
-### `Error: wlroots-0.20 development files not found`
-The greeter builds against wlroots, and the required major version differs per
-Debian release. Run the system dependencies step (option `1`), or install the
-package the error message names yourself.
+### `Dependency "wlroots-0.20" not found` (or `wlroots-0.20 development files not found`)
+Noctalia Greeter builds against **wlroots 0.20 specifically** — upstream pins
+that version in its `meson.build`. Debian 13 ships only wlroots 0.18, so a fresh
+Trixie machine cannot satisfy it from the release's own repositories.
+
+The script cannot install this for you: Debian 13's own libraries are older
+than wlroots 0.20 requires, so the package has to come from a newer release and
+adding a repository is your decision. Step 1 prints the commands when it cannot
+find wlroots 0.20. To do it by hand, use the block below.
+
+<details>
+<summary>Installing wlroots 0.20 on Debian 13 (manual)</summary>
+
+Debian 13 cannot satisfy wlroots 0.20 on its own — it ships `libwayland 1.23`,
+`libdrm 2.4.124` and `libxkbcommon 1.7`, all below what wlroots 0.20 requires.
+So wlroots 0.20 has to come from a newer release. Add **forky** and install it
+explicitly, with forky pinned to a low priority so it never becomes the default
+for anything else:
+
+```bash
+# 1. add forky
+echo 'deb http://deb.debian.org/debian forky main' \
+  | sudo tee /etc/apt/sources.list.d/forky.list
+
+# 2. pin it low, so a normal `apt upgrade` keeps using trixie
+echo 'Package: *' | sudo tee /etc/apt/preferences.d/forky-low-priority
+echo 'Pin: release n=forky' >> /etc/apt/preferences.d/forky-low-priority
+echo 'Pin-Priority: 100'    >> /etc/apt/preferences.d/forky-low-priority
+
+# 3. install wlroots 0.20 and its dependency closure from forky only
+sudo apt update
+sudo apt install -t forky libwlroots-0.20-dev
+```
+
+The `-t forky` flag matters: it pulls wlroots **and** the newer libraries it
+needs (`libwayland`, `libdrm`, `libxkbcommon`, …) from forky, while everything
+else on the system stays on trixie.
+
+Verify it worked:
+
+```bash
+pkg-config --exists wlroots-0.20 && echo "wlroots 0.20 ready"
+dpkg -l 'libwlroots-0.20*' | tail -3
+```
+
+If `dpkg -l` shows `un` / `iF` / `iU` in the status column, the install did not
+complete — run `sudo apt-get -f install` and read the error.
+
+**Why not just download the `.deb`?** Fetching `libwlroots-0.20` from
+`ftp.debian.org/debian/pool/` and running `dpkg -i` does not work here.
+`dpkg -i` resolves no dependencies, so it unpacks the package and then leaves it
+unconfigured on trixie — the headers are unusable and the greeter still will not
+build. Letting apt pull the matching dependency set from forky is the approach
+that actually works.
+
+</details>
+
+### `bindgen` fails with a missing `libclang.so`
+Niri's build runs `bindgen`, which links against `libclang`. Step 1 installs
+`clang` and `libclang-dev`; if you skipped it or built Niri by hand:
+
+```bash
+sudo apt install clang libclang-dev
+```
 
 ### `libdisplay-info3 is not available via apt`
 Expected on an older release: Debian ships a version too old for Niri. The

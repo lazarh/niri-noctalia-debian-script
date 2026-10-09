@@ -44,8 +44,42 @@ echo ""
 echo "--- Dependencies ---"
 source_contains "greetd package"          'greetd'
 source_contains "greetd enable"           'sudo systemctl enable greetd'
-source_contains "wlroots in deps"         'libwlroots-${WLROOTS_VERSION}-dev'
-source_contains "pkg-config check"        'pkg-config --exists wlroots-'
+source_contains "pkg-config check"        'pkg-config --exists "$module"'
+
+echo ""
+echo "--- bindgen / libclang (Niri build needs libclang.so) ---"
+source_contains "clang package"     'clang'
+source_contains "libclang-dev"      'libclang-dev'
+
+echo ""
+echo "--- wlroots version the greeter is built against ---"
+# Upstream noctalia-greeter pins wlroots-0.20 in its meson.build. The release's
+# own wlroots version must not decide that, or the build dies inside meson with
+# 'Dependency "wlroots-0.20" not found'.
+source_contains "greeter pins its wlroots version" 'GREETER_WLROOTS_VERSION="0.20"'
+source_contains "guard checks the greeter version" 'pkg-config --exists "$module"'
+source_contains "guard also checks the package is configured" "ok installed"
+source_not_contains "guard does not use the release version" 'pkg-config --exists "wlroots-${WLROOTS_VERSION}"'
+
+echo ""
+echo "--- wlroots 0.20 comes from forky, never auto-added ---"
+source_contains "wlroots tried via apt"   'libwlroots-${GREETER_WLROOTS_VERSION}-dev'
+source_contains "forky is offered"        'apt install -t forky libwlroots-'
+source_contains "forky pinned low"       'Pin-Priority: 100'
+source_contains "forky source suggested" 'forky.list'
+# The script must not add a repository on its own: doing so changes system-wide
+# upgrade behaviour, which is the user's decision. It may only *print* the
+# commands, so a `tee` into the sources dir is fine but a redirect into one
+# (what actually running them would look like) is not.
+source_not_contains "forky.list is only printed, never written" '> /etc/apt/sources.list.d/forky.list'
+source_not_contains "no apt update is run for forky"           'apt update -o Dir::Etc::sourcelist'
+source_not_contains "wlroots is not fetched from the pool" 'install_pool_deb "libwlroots-'
+
+echo ""
+echo "--- A failed .deb install must not be reported as success ---"
+# dpkg unpacks but cannot configure a .deb with unmet deps, so its exit status
+# has to be checked or the script reports success over a broken install.
+source_contains "dpkg failure is handled" 'if sudo dpkg -i "$deb"; then'
 
 echo ""
 echo "--- XML protocol download (Trixie) ---"

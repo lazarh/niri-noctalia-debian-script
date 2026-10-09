@@ -55,11 +55,17 @@ STUB
     cp "$SANDBOX_BIN/apt" "$SANDBOX_BIN/apt-get"
     sed -i 's/\[stub apt\]/[stub apt-get]/' "$SANDBOX_BIN/apt-get"
 
+    # dpkg: SANDBOX_DPKG_FAIL=1 simulates a .deb that unpacks but cannot be
+    # configured, which is how unmet dependencies surface.
     cat > "$SANDBOX_BIN/dpkg" <<'STUB'
 #!/bin/bash
 if [ "$1" = "--print-architecture" ]; then
     echo "${SANDBOX_ARCH:-amd64}"
     exit 0
+fi
+if [ -n "${SANDBOX_DPKG_FAIL:-}" ] && [ "$1" = "-i" ]; then
+    echo "dpkg: dependency problems prevent configuration of $2" >&2
+    exit 1
 fi
 echo "[stub dpkg] $*"
 exit 0
@@ -86,6 +92,67 @@ fi
 exit 0
 STUB
 
+    # curl: records the call on stderr and writes nothing to stdout, so callers
+    # that pipe it into another command (gpg) or eval it (Oh My Zsh) stay valid.
+    printf '#!/bin/bash\necho "[stub curl] $*" >&2\nexit 0\n' > "$SANDBOX_BIN/curl"
+
+    # dpkg-query: reports install status for a package. SANDBOX_UNCONFIGURED names
+    # packages dpkg has unpacked but could not configure, which is exactly the
+    # state where pkg-config sees a .pc file the build cannot use.
+    cat > "$SANDBOX_BIN/dpkg-query" <<'STUB'
+#!/bin/bash
+# Last non-flag argument is the package name.
+pkg=""
+for arg in "$@"; do
+    case "$arg" in
+        -*) ;;
+        *) pkg="$arg" ;;
+    esac
+done
+for bad in ${SANDBOX_UNCONFIGURED:-}; do
+    if [ "$pkg" = "$bad" ]; then
+        echo "install ok unpacked"
+        exit 0
+    fi
+done
+echo "install ok installed"
+exit 0
+STUB
+
+    # No-op stubs for everything else install.sh shells out to.
+    for cmd in cargo just meson systemctl install unzip tar fc-cache usermod \
+               chsh gpg rustup rustc; do
+        printf '#!/bin/bash\necho "[stub %s] $*"\nexit 0\n' "$cmd" \
+            > "$SANDBOX_BIN/$cmd"
+    done
+
+    # Fakes for the binaries the script verifies after installing.
+    for cmd in niri noctalia yazi nvim; do
+        printf '#!/bin/bash\necho "%s 0.0.0 (stub)"\n' "$cmd" > "$SANDBOX_BIN/$cmd"
+    done
+
+    # pkg-config models wlroots per version: SANDBOX_WLROOTS_MISSING names the
+    # versions that are absent, so a test can simulate a release that ships
+    # wlroots-0.18 while wlroots-0.20 is still missing. SANDBOX_NO_WLROOTS=1
+    # hides every version.
+    cat > "$SANDBOX_BIN/pkg-config" <<'STUB'
+#!/bin/bash
+[ -n "${SANDBOX_NO_WLROOTS:-}" ] && exit 1
+if [ "${1:-}" = "--exists" ]; then
+    shift
+    for mod in "$@"; do
+        case "$mod" in
+            wlroots-*)
+                for missing in ${SANDBOX_WLROOTS_MISSING:-}; do
+                    [ "$mod" = "wlroots-$missing" ] && exit 1
+                done
+                ;;
+        esac
+    done
+fi
+exit 0
+STUB
+
     # wget: serves a fake Debian pool listing, otherwise writes an empty file.
     cat > "$SANDBOX_BIN/wget" <<'STUB'
 #!/bin/bash
@@ -107,37 +174,14 @@ echo "[stub wget] GET $url"
 exit 0
 STUB
 
-    # curl: records the call on stderr and writes nothing to stdout, so callers
-    # that pipe it into another command (gpg) or eval it (Oh My Zsh) stay valid.
-    printf '#!/bin/bash\necho "[stub curl] $*" >&2\nexit 0\n' > "$SANDBOX_BIN/curl"
-
-    # No-op stubs for everything else install.sh shells out to.
-    for cmd in cargo just meson systemctl install unzip tar fc-cache usermod \
-               chsh gpg rustup rustc; do
-        printf '#!/bin/bash\necho "[stub %s] $*"\nexit 0\n' "$cmd" \
-            > "$SANDBOX_BIN/$cmd"
-    done
-
-    # Fakes for the binaries the script verifies after installing.
-    for cmd in niri noctalia yazi nvim; do
-        printf '#!/bin/bash\necho "%s 0.0.0 (stub)"\n' "$cmd" > "$SANDBOX_BIN/$cmd"
-    done
-
-    # pkg-config succeeds by default; callers that want the missing-dev-files
-    # path set SANDBOX_NO_WLROOTS=1.
-    cat > "$SANDBOX_BIN/pkg-config" <<'STUB'
-#!/bin/bash
-[ -n "${SANDBOX_NO_WLROOTS:-}" ] && exit 1
-exit 0
-STUB
-
     chmod +x "$SANDBOX"/bin/*
     # Point TMPDIR inside the sandbox so every mktemp call the script makes is
     # observable here and can never pollute the host /tmp.
     mkdir -p "$SANDBOX/tmp"
     export SANDBOX_BIN SANDBOX_HOME SANDBOX_OUT SANDBOX_STDIN SANDBOX_TMP
     export SANDBOX_APT_MISSING="" SANDBOX_ARCH="amd64" SANDBOX_NO_WLROOTS=""
-    export SANDBOX_POOL_LISTING=""
+    export SANDBOX_DPKG_FAIL="" SANDBOX_UNCONFIGURED=""
+    export SANDBOX_POOL_LISTING="" SANDBOX_WLROOTS_MISSING=""
     SANDBOX_TMP="$SANDBOX/tmp"
 }
 
@@ -152,6 +196,9 @@ sandbox_run() {
         SANDBOX_APT_MISSING="$SANDBOX_APT_MISSING" \
         SANDBOX_ARCH="$SANDBOX_ARCH" \
         SANDBOX_NO_WLROOTS="$SANDBOX_NO_WLROOTS" \
+        SANDBOX_WLROOTS_MISSING="$SANDBOX_WLROOTS_MISSING" \
+        SANDBOX_DPKG_FAIL="$SANDBOX_DPKG_FAIL" \
+        SANDBOX_UNCONFIGURED="$SANDBOX_UNCONFIGURED" \
         SANDBOX_POOL_LISTING="$SANDBOX_POOL_LISTING" \
         bash "$SCRIPT_DIR/../install.sh" "$@" > "$SANDBOX_OUT" 2>&1
 }

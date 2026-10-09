@@ -273,6 +273,13 @@ elif [ "$CORE_BY_DEFAULT" = true ]; then
     INSTALL_NOCTALIA_GREETER=true
 fi
 
+# wlroots major version Noctalia Greeter is built against. Upstream pins this in
+# its meson.build (dependency('wlroots-0.20')), so it is a property of the
+# greeter rather than of the running Debian release. Debian 13 ships only
+# wlroots-0.18, and its own libraries are too old for 0.20, so that release has
+# to take the package from a newer one — see the step 1 message.
+GREETER_WLROOTS_VERSION="0.20"
+
 # Detect Debian version and set wlroots version. Accepts an os-release path as an
 # optional argument so tests can point it at a fixture.
 # shellcheck disable=SC2120
@@ -317,15 +324,41 @@ clone_repo() {
     git clone --depth=1 "$url" "$name"
 }
 
-# Fail early with instructions if the wlroots development files are missing
+# Fail early with instructions if the wlroots development files the greeter is
+# built against are missing.
+#
+# The version checked here is the one upstream noctalia-greeter pins in its
+# meson.build, not the one this release happens to ship. Checking the release's
+# own version is what produced the original report: the guard passed on 0.18 and
+# the build then died inside meson with 'Dependency "wlroots-0.20" not found'.
 require_wlroots_dev() {
-    if ! pkg-config --exists wlroots-${WLROOTS_VERSION}; then
+    if ! wlroots_usable "wlroots-${GREETER_WLROOTS_VERSION}"; then
         echo ""
-        echo "Error: wlroots-${WLROOTS_VERSION} development files not found."
-        echo "Install the system dependencies first, or run it manually:"
-        echo "  sudo apt install libwlroots-${WLROOTS_VERSION}-dev"
+        echo "Error: wlroots-${GREETER_WLROOTS_VERSION} development files are not usable."
+        echo "Noctalia Greeter is built against wlroots-${GREETER_WLROOTS_VERSION}; this"
+        echo "release ships wlroots-${WLROOTS_VERSION}, which it cannot use."
+        echo ""
+        echo "Install it from Debian's forky release, pinned to a low priority so it"
+        echo "only affects what you explicitly ask for:"
+        echo "  sudo apt install -t forky libwlroots-${GREETER_WLROOTS_VERSION}-dev"
+        echo ""
+        echo "That needs forky in your sources; step 1 prints the exact commands"
+        echo "when it cannot find wlroots-${GREETER_WLROOTS_VERSION}."
+        echo ""
+        echo "If that is not acceptable, skip this step: Niri and Noctalia do not"
+        echo "need wlroots. See the README for the full wlroots-0.20 guide."
         return 1
     fi
+}
+
+# True when $1 (a pkg-config module name) both resolves and belongs to a package
+# dpkg considers fully installed. The second half matters: dpkg unpacks a .deb
+# whose dependencies are unmet and leaves it unconfigured, so pkg-config can see
+# a wlroots-0.20.pc that the compiler cannot actually use.
+wlroots_usable() {
+    local module="$1"
+    pkg-config --exists "$module" || return 1
+    dpkg-query -W -f='${Status}' "lib${module}-dev" 2>/dev/null | grep -q 'ok installed'
 }
 
 # Verify a freshly installed binary is reachable, failing loudly if it is not
@@ -408,7 +441,9 @@ build_component() {
 }
 
 # Install a package, preferring the Debian repository and falling back to the
-# pool .deb when the release is too old to carry it
+# pool .deb when the release is too old to carry it.
+#
+# $1 package name
 install_pool_deb() {
     local pkg="$1" pool="https://ftp.debian.org/debian/pool/main/libd/libdisplay-info/"
     local arch listing url deb
@@ -434,8 +469,19 @@ install_pool_deb() {
 
     deb="$(mktemp)"; register_temp "$deb"
     wget --progress=bar:force -O "$deb" "${pool}${url}"
-    sudo dpkg -i "$deb"
-    echo "$pkg installed successfully"
+
+    # dpkg's exit status has to be checked explicitly. A .deb whose dependencies
+    # are not met is unpacked but left unconfigured, so a caller that trusts the
+    # return value here would go on to "succeed" against a half-installed
+    # package and only fail much later, during a build.
+    if sudo dpkg -i "$deb"; then
+        echo "$pkg installed successfully"
+        return 0
+    fi
+
+    echo "Error: $pkg failed to install; its dependencies are probably not met"
+    echo "  (see ${pool}${url} and run: sudo apt-get -f install)"
+    return 1
 }
 
 # Detect Debian version and set wlroots variables
@@ -510,7 +556,7 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Rus
 	meson libsdbus-c++-dev libical-dev libjxl-dev libsndfile1-dev \
 	libpipewire-0.3-dev pkg-config libmd4c-dev \
         wayland-protocols libwayland-dev libegl1-mesa-dev \
-        libwlroots-${WLROOTS_VERSION}-dev libegl-dev libgles-dev \
+        libegl-dev libgles-dev \
         libpolkit-agent-1-dev libjemalloc-dev libpam0g-dev swayidle \
 	libpango1.0-dev libwireplumber-0.5-dev nlohmann-json3-dev \
 	libfreetype-dev libfontconfig1-dev libcairo2-dev libharfbuzz-dev \
@@ -518,6 +564,7 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Rus
 	libcurl4-gnutls-dev libqalculate-dev libxml2-dev libwebp-dev libepoxy-dev \
 	alacritty fuzzel waybar xdg-desktop-portal-gtk xwayland \
         libsecret-1-dev libsodium-dev libstb-dev nwg-look greetd \
+        clang libclang-dev \
         wget python3
 
     sudo systemctl enable greetd
@@ -534,6 +581,37 @@ if [ "$INSTALL_DEPS" = true ] && ask_skip "system dependencies (build tools, Rus
     echo "Installing libdisplay-info3 and libdisplay-info-dev..."
     install_pool_deb libdisplay-info3
     install_pool_deb libdisplay-info-dev
+
+    # wlroots for Noctalia Greeter. The greeter pins a single wlroots major
+    # version, which Debian 13 does not carry (it ships an older one), so ask
+    # apt first and let the greeter step explain the rest.
+    #
+    # Only the greeter needs this, so a failure here is a warning rather than a
+    # fatal error: aborting step 1 would take Niri and Noctalia down with it.
+    # Deliberately not automated beyond apt — pulling a library from a newer
+    # release is a system-wide decision the user should make (see the message).
+    echo "Installing libwlroots-${GREETER_WLROOTS_VERSION} (required by Noctalia Greeter)..."
+    if sudo apt-get install -y --no-install-recommends \
+        "libwlroots-${GREETER_WLROOTS_VERSION}-dev" 2>/dev/null; then
+        echo "libwlroots-${GREETER_WLROOTS_VERSION} installed from the Debian repositories"
+    else
+        echo "Warning: libwlroots-${GREETER_WLROOTS_VERSION}-dev is not in this release's"
+        echo "         repositories, so Noctalia Greeter cannot be built yet."
+        echo "         Niri and Noctalia do not need wlroots and install fine."
+        echo ""
+        echo "         To add it, install from Debian's forky release. Pin forky to a"
+        echo "         low priority first, so it only affects what you ask for and"
+        echo "         never what a later 'apt upgrade' pulls in:"
+        echo ""
+        echo "           echo 'deb http://deb.debian.org/debian forky main' \\"
+        echo "             | sudo tee /etc/apt/sources.list.d/forky.list"
+        echo "           echo 'Package: *' \\"
+        echo "             | sudo tee /etc/apt/preferences.d/forky-low-priority"
+        echo "           echo 'Pin: release n=forky' >> /etc/apt/preferences.d/forky-low-priority"
+        echo "           echo 'Pin-Priority: 100'    >> /etc/apt/preferences.d/forky-low-priority"
+        echo "           sudo apt update"
+        echo "           sudo apt install -t forky libwlroots-${GREETER_WLROOTS_VERSION}-dev"
+    fi
 
     # Install Rust toolchain
     echo "Installing Rust toolchain..."

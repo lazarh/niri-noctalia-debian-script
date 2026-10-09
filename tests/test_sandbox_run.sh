@@ -119,9 +119,99 @@ SANDBOX_STDIN=""
 status=0
 sandbox_run --upgrade greeter || status=$?
 assert_status "greeter upgrade fails without wlroots-dev" 1 "$status"
-assert_contains "wlroots error shown"   "development files not found" output
-assert_contains "wlroots fix suggested" "apt install libwlroots-"   output
+assert_contains "wlroots error shown"   "development files are not usable" output
+assert_contains "wlroots fix suggested" "apt install -t forky libwlroots-" output
 SANDBOX_NO_WLROOTS=""
+
+echo ""
+echo "=== Test: the guard asks for the version the greeter is built against ==="
+# pkg-config must be probed for wlroots-0.20 (what upstream meson.build pins),
+# never for whatever wlroots the running release happens to ship.
+SANDBOX_NO_WLROOTS=""
+SANDBOX_WLROOTS_MISSING="0.20"
+SANDBOX_STDIN=""
+status=0
+sandbox_run --upgrade greeter || status=$?
+assert_status "greeter fails when only the release wlroots is present" 1 "$status"
+assert_contains "the error names the required version" "wlroots-0.20" output
+assert_contains "the error contrasts the release version" "ships wlroots-0.18" output
+SANDBOX_WLROOTS_MISSING=""
+
+echo ""
+echo "=== Test: wlroots 0.20 is offered from forky, and not installed silently ==="
+# Debian 13 has no wlroots 0.20, so step 1 must explain the forky route. It must
+# not add the repository itself or pull the package in behind the user's back.
+SANDBOX_APT_MISSING="libwlroots-0.20-dev"
+SANDBOX_STDIN=$'1\n'
+sandbox_run --menu || true
+assert_contains "warns that the release lacks it" "not in this release's" output
+assert_contains "suggests the forky install"      "apt install -t forky libwlroots-0.20-dev" output
+assert_contains "shows the pin"                   "Pin-Priority: 100" output
+assert_contains "says forky source"               "forky.list" output
+assert_contains "reassures about the rest"        "do not need wlroots" output
+assert_contains "step 1 still completes"          "System dependencies installed successfully!" output
+if sandbox_output | grep -qF "wlroots-0.20-dev installed from the Debian repositories"; then
+    no "no silent success for a package apt could not provide" "reported a successful install"
+else
+    ok "no silent success for a package apt could not provide"
+fi
+if sandbox_output | grep -qF "w/wlroots/"; then
+    no "wlroots is not pulled from the pool" "the script fetched a wlroots .deb itself"
+else
+    ok "wlroots is not pulled from the pool"
+fi
+SANDBOX_APT_MISSING=""
+
+echo ""
+echo "=== Test: an unpacked-but-unconfigured wlroots is not treated as usable ==="
+# dpkg leaves a .deb with unmet deps in "install ok unpacked": pkg-config finds
+# wlroots-0.20.pc and the guard would pass, then meson fails on missing headers.
+SANDBOX_UNCONFIGURED="libwlroots-0.20-dev"
+SANDBOX_STDIN=""
+status=0
+sandbox_run --upgrade greeter || status=$?
+assert_status "greeter refuses a half-installed wlroots" 1 "$status"
+assert_contains "the error says unusable" "development files are not usable" output
+assert_contains "points at the forky route"    "apt install -t forky" output
+assert_contains "offers the skip path"          "do not" output
+SANDBOX_UNCONFIGURED=""
+
+echo ""
+echo "=== Test: a .deb that fails to install is reported as a failure ==="
+# dpkg unpacks a .deb whose deps are unmet but leaves it unconfigured, so the
+# exit status must be honoured. libdisplay-info is a hard requirement of Niri,
+# so failing here aborts rather than pretending to have installed it.
+SANDBOX_DPKG_FAIL=1
+SANDBOX_APT_MISSING="libdisplay-info3 libdisplay-info-dev"
+SANDBOX_POOL_LISTING="libdisplay-info3_0.3.0+ds-1_amd64.deb
+libdisplay-info-dev_0.3.0+ds-1_amd64.deb
+"
+SANDBOX_STDIN=$'1 2 3\n'
+status=0
+sandbox_run --menu || status=$?
+assert_status "a failed dpkg install is fatal" 1 "$status"
+assert_not_contains "no false success for the failed package" "libdisplay-info3 installed successfully" output
+assert_contains "the failure is reported" "dependencies are probably not met" output
+assert_contains "the recovery command is given" "apt-get -f install" output
+SANDBOX_DPKG_FAIL=""
+SANDBOX_APT_MISSING=""
+SANDBOX_POOL_LISTING=""
+
+echo ""
+echo "=== Test: libclang is installed so Niri's bindgen can run ==="
+SANDBOX_APT_MISSING=""
+SANDBOX_STDIN=$'1\n'
+sandbox_run --menu || true
+if sandbox_output | grep -E 'install .*(^| )clang( |$)' >/dev/null; then
+    ok "clang is part of the system dependencies"
+else
+    no "clang is part of the system dependencies" "no clang package in the apt install line"
+fi
+if sandbox_output | grep -qF "libclang-dev"; then
+    ok "libclang-dev is part of the system dependencies"
+else
+    no "libclang-dev is part of the system dependencies" "libclang-dev missing from the apt install line"
+fi
 
 echo ""
 echo "=== Test: upgrade mode validates its argument ==="
